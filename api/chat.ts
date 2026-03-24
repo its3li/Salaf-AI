@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer sk-voidai-tnJh_KWJGJii-8DtuS-uyd8ISV1sjIPhVDiQTCkqNzIt7o7wZqzjAfw-BtX6x9SDe59cyfnSi5tj6Neir2PsLGlU8eH05m0Y2WetnMyiS2Tm6d3laVakyszHNOL-PkdNwf3qmg`
+                'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
                 model: 'gemini-3-flash-preview',
