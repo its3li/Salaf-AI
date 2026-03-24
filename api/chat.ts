@@ -76,18 +76,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...messages
         ];
 
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        const response = await fetch('https://api.voidai.app/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer sk-voidai-tnJh_KWJGJii-8DtuS-uyd8ISV1sjIPhVDiQTCkqNzIt7o7wZqzjAfw-BtX6x9SDe59cyfnSi5tj6Neir2PsLGlU8eH05m0Y2WetnMyiS2Tm6d3laVakyszHNOL-PkdNwf3qmg`
             },
             body: JSON.stringify({
-                model: 'kimi',
+                model: 'gemini-3-flash-preview',
                 messages: finalMessages,
-                temperature: 0.7,
+                temperature: 0.1,
                 stream: true,
-                max_tokens: 16500
+                max_tokens: 4096
             })
         });
 
