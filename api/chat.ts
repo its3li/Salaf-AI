@@ -76,14 +76,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...messages
         ];
 
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        const response = await fetch('https://api.voidai.app/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'kimi',
+                model: 'gemini-3-flash-preview',
                 messages: finalMessages,
                 temperature: 0.7,
                 stream: true,
