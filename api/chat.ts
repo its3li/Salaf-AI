@@ -85,9 +85,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: JSON.stringify({
                 model: 'gemini-3-flash-preview',
                 messages: finalMessages,
-                temperature: 0.7,
+                temperature: 0.1,
                 stream: true,
-                max_tokens: 16500
+                max_tokens: 4096
             })
         });
 
