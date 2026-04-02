@@ -5,9 +5,11 @@ import { Message } from '../types';
 
 interface MessageBubbleProps {
   message: Message;
+  canRetry?: boolean;
+  onRetry?: (messageId: string) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry = false, onRetry }) => {
   const isUser = message.role === 'user';
   const [isCopied, setIsCopied] = useState(false);
   const [showSources, setShowSources] = useState(false);
@@ -20,25 +22,133 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   // Extract Sources and Clean Text
   const { displayContent, sourcesList } = useMemo(() => {
     const rawText = message.text || "";
-    // Regex to match the block between [[SOURCES_START]] and [[SOURCES_END]]
     const sourceRegex = /\[\[SOURCES_START\]\]([\s\S]*?)\[\[SOURCES_END\]\]/;
     const match = rawText.match(sourceRegex);
 
-    if (match) {
-      const sourcesContent = match[1].trim();
-      const sources = sourcesContent
-        .split('\n')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-      
-      return {
-        displayContent: rawText.replace(sourceRegex, '').trim(),
-        sourcesList: sources
-      };
+    if (!match) {
+      return { displayContent: rawText, sourcesList: [] };
     }
 
-    return { displayContent: rawText, sourcesList: [] };
+    const sources = match[1]
+      .trim()
+      .split('\n')
+      .map(source => source.trim())
+      .filter(Boolean);
+
+    return {
+      displayContent: rawText.replace(sourceRegex, '').trim(),
+      sourcesList: sources
+    };
   }, [message.text]);
+
+  const hasSources = sourcesList.length > 0;
+  const sourceCountLabel = toArabicNumerals(sourcesList.length.toString());
+  const sourceButtonLabel = hasSources ? `عرض المصادر (${sourceCountLabel})` : 'عرض المصادر';
+
+  const formatSourceText = (source: string) =>
+    toArabicNumerals(source.replace(/^\d+\.\s*/, ''));
+
+  const openSources = () => setShowSources(true);
+
+  const renderSourcesButton = () => {
+    if (!hasSources || isUser || message.isError) return null;
+
+    return (
+      <button
+        type="button"
+        onClick={openSources}
+        className="flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-medium text-[#F2D16B] transition-colors hover:bg-[#D4AF37]/20"
+        title="عرض المصادر"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span>{sourceButtonLabel}</span>
+      </button>
+    );
+  };
+
+  const sourcesButton = renderSourcesButton();
+
+  const shouldAlwaysShowActions = Boolean(sourcesButton) || message.isError;
+
+  const actionsClassName = shouldAlwaysShowActions
+    ? 'flex gap-2 opacity-100'
+    : 'flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200';
+
+  const hasTrailingActions = Boolean(sourcesButton) || (!message.isError && !isUser) || (message.isError && canRetry && onRetry);
+
+  const trailingMetaClassName = hasTrailingActions
+    ? 'flex items-center justify-between mt-3 gap-3 flex-wrap'
+    : 'flex items-center justify-end mt-2 gap-3';
+
+  const formattedTime = toArabicNumerals(message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+  const closeSources = () => setShowSources(false);
+
+  const sourceModalTitle = hasSources ? `المصادر (${sourceCountLabel})` : 'المصادر';
+
+  const shouldShowCopyButton = !message.isError && !isUser;
+
+  const shouldShowRetryButton = Boolean(message.isError && canRetry && onRetry);
+
+  const handleRetryClick = () => {
+    if (onRetry) {
+      onRetry(message.id);
+    }
+  };
+
+  const renderSourceList = () => (
+    <ul className="space-y-4">
+      {sourcesList.map((source, index) => (
+        <li key={index} className="flex gap-3 text-[#E0E0E0] text-sm leading-relaxed bg-[#121212]/50 p-3 rounded-lg border border-[#333]">
+          <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold font-mono border border-[#D4AF37]/30">
+            {toArabicNumerals((index + 1).toString())}
+          </span>
+          <span>{formatSourceText(source)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  const renderTrailingActions = () => {
+    if (isUser) return null;
+
+    return (
+      <div className={actionsClassName}>
+        {sourcesButton}
+
+        {shouldShowCopyButton && (
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-full hover:bg-white/10 text-[#F2D16B]"
+            title="نسخ النص"
+            aria-label="Copy text"
+          >
+            {isCopied ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2 2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            )}
+          </button>
+        )}
+
+        {shouldShowRetryButton && (
+          <button
+            onClick={handleRetryClick}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-200 border border-red-500/30 transition-colors text-xs"
+            title="إعادة المحاولة"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path></svg>
+            <span>إعادة المحاولة</span>
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const handleCopy = () => {
     // Clean the text from custom HTML tags injected by the prompt before copying
@@ -252,46 +362,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               </ReactMarkdown>
             </div>
           )}
-          
-          <div className="flex items-center justify-end mt-2 gap-3">
+
+          <div className={trailingMetaClassName}>
             <div className={`text-[10px] opacity-70 ${isUser ? 'text-[#151922]' : 'text-[#F2D16B]'}`}>
-              {toArabicNumerals(message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
+              {formattedTime}
             </div>
 
-            {!isUser && !message.isError && (
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                {/* Sources Button */}
-                {sourcesList.length > 0 && (
-                  <button
-                    onClick={() => setShowSources(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#F2D16B] border border-[#D4AF37]/30 transition-colors text-xs"
-                    title="عرض المصادر"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                    <span>المصادر</span>
-                  </button>
-                )}
-
-                {/* Copy Button */}
-                <button
-                  onClick={handleCopy}
-                  className="p-1.5 rounded-full hover:bg-white/10 text-[#F2D16B]"
-                  title="نسخ النص"
-                  aria-label="Copy text"
-                >
-                  {isCopied ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                      <path d="M5 15H4a2 2 0 0 1-2 2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                  )}
-                </button>
-              </div>
-            )}
+            {renderTrailingActions()}
           </div>
         </div>
       </article>
@@ -323,7 +400,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                     <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold font-mono border border-[#D4AF37]/30">
                       {toArabicNumerals((index + 1).toString())}
                     </span>
-                    <span>{toArabicNumerals(source.replace(/^\d+\.\s*/, ''))}</span>
+                    <span>{formatSourceText(source)}</span>
                   </li>
                 ))}
               </ul>

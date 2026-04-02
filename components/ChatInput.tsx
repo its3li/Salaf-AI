@@ -4,6 +4,8 @@ import { Attachment } from '../types';
 
 interface ChatInputProps {
   onSend: (text: string, attachment?: Attachment) => void;
+  onStop: () => void;
+  canStop: boolean;
   isLoading: boolean;
   input: string;
   setInput: (text: string) => void;
@@ -12,7 +14,7 @@ interface ChatInputProps {
 const MIN_TEXTAREA_HEIGHT = 44;
 const MAX_TEXTAREA_HEIGHT = 72;
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, input, setInput }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, isLoading, input, setInput }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined);
@@ -114,25 +116,37 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, input, 
             disabled={isLoading}
           />
 
-          <button
-            onClick={() => handleSubmit()}
-            disabled={(!input.trim() && !attachment) || isLoading}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${
-              (!input.trim() && !attachment) || isLoading
-                ? 'bg-white/10 cursor-not-allowed text-gray-500'
-                : 'bg-gradient-to-b from-[#D4AF37] to-[#C89D2F] hover:brightness-105 text-[#121212] shadow-lg shadow-[#D4AF37]/30'
-            }`}
-            title="إرسال"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-[#121212] border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="19" x2="12" y2="5"></line>
-                <polyline points="5 12 12 5 19 12"></polyline>
+          {canStop ? (
+            <button
+              onClick={onStop}
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30"
+              title="إيقاف الرد"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
               </svg>
-            )}
-          </button>
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSubmit()}
+              disabled={(!input.trim() && !attachment) || isLoading}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${
+                (!input.trim() && !attachment) || isLoading
+                  ? 'bg-white/10 cursor-not-allowed text-gray-500'
+                  : 'bg-gradient-to-b from-[#D4AF37] to-[#C89D2F] hover:brightness-105 text-[#121212] shadow-lg shadow-[#D4AF37]/30'
+              }`}
+              title="إرسال"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-[#121212] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

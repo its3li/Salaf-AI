@@ -42,7 +42,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
           
           {/* Disclaimer moved here */}
           <div className="max-w-3xl mx-auto py-3 px-6 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#D4AF37] text-sm mb-8 font-medium leading-loose shadow-[0_0_15px_rgba(212,175,55,0.05)]">
-            هذه الأداة هي معين ومساعد للباحث وطالب العلم، وليست بديلاً عن العلماء الراسخين. في النوازل والمسائل المعقدة، يجب دائمًا الرجوع إلى أهل العلم المختصين.
+            هذه الأداة مساعد بحثي لطالب العلم، وليست بديلاً عن العلماء. في الفتاوى الخاصة والنوازل يُرجع إلى أهل العلم المختصين.
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8a7020] mb-6 drop-shadow-sm leading-tight">
@@ -51,7 +51,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             <span className="text-3xl md:text-5xl text-[#E0E0E0] mt-4 block font-light">للعلم الشرعي </span>
           </h1>
           <p className="max-w-2xl mx-auto text-gray-300 text-base md:text-lg leading-relaxed mb-10">
-            أداة بحثية متقدمة تعتمد على الذكاء الاصطناعي، صُممت بدقة لتقديم الإجابات المستنبطة من القرآن والسنة بفهم سلف الأمة.
+            أداة بحثية تساعدك على الوصول السريع إلى الجواب الشرعي، مع إظهار المنهجية والمراجع قدر الإمكان.
           </p>
           
           <button 
@@ -69,58 +69,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
         </div>
       </main>
 
-      {/* Technical Vision Section */}
       <section className="relative z-10 w-full bg-[#121212]/50 backdrop-blur-xl border-t border-[#333]">
-        <div className="max-w-5xl mx-auto px-6 py-24 text-center">
-          <div className="flex flex-col items-center">
-          
-              <h2 className="text-3xl md:text-5xl font-bold text-[#E0E0E0] mb-8 leading-tight">
-                لماذا تعتبر هذه الصناعة <br />
-                <span className="text-[#D4AF37] decoration-wavy underline decoration-[#D4AF37]/30">ليست بسيطة</span>؟
-              </h2>
-              <div className="max-w-3xl text-gray-300 leading-relaxed text-lg space-y-6">
-                <p>
-                  إن بناء ذكاء اصطناعي إسلامي ليس مجرد تغذية للبيانات، بل هو هندسة دقيقة للأمانة العلمية. التحدي لا يكمن في التكنولوجيا فحسب، بل في "ضبط المنهجية".
-                </p>
-                <p>
-                  الكلمة في الدين لها وزن، والخطأ فيها ليس كالخطأ في غيرها. لذلك، فإن Salaf AI يعمل بخوارزميات توجيه صارمة لضمان عدم الخروج عن نصوص الوحيين، مما يجعل بنيته التحتية أكثر تعقيداً من النماذج التقليدية.
-                </p>
-              </div>
+        <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#E0E0E0] mb-4">كيف يعمل باحث السلف؟</h2>
+            <p className="text-gray-300 max-w-2xl mx-auto leading-relaxed text-base md:text-lg">
+              صُمم ليكون أداة بحث تساعدك على الوصول السريع للجواب، مع إبراز المنهجية والتنبيه إلى أن مسائل الفتوى الخاصة تُرجع لأهل العلم.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
+              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">المرجعية</h3>
+              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+                يعتمد الجواب على القرآن الكريم والسنة الصحيحة، مع اعتبار فهم السلف الصالح وأقوال أهل العلم المعتبرين.
+              </p>
+            </div>
+
+            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
+              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">طريقة العرض</h3>
+              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+                يركّز على الجواب الواضح، مع إظهار المصادر والمراجع داخل الرد لتسهيل المراجعة وعدم الاكتفاء بالنص المجرد.
+              </p>
+            </div>
+
+            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
+              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">الحدود</h3>
+              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+                هو مساعد بحثي وليس بديلاً عن العلماء، ولذلك تبقى النوازل والفتاوى الخاصة بحاجة إلى الرجوع لأهل العلم المختصين.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* About Section (Revamped) */}
       <section id="about" className="relative z-10 w-full bg-[#0a0a0a] border-t border-[#333] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-            <div className="text-center mb-16">
-               <h2 className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-4">عن المشروع</h2>
-               <p className="text-gray-300 max-w-2xl mx-auto">منصة ذكية تهدف إلى تيسير الوصول إلى العلم الشرعي الموثوق بدقة وأمانة</p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-8">
-                {/* Mission Card */}
-                <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-8 rounded-2xl border border-[#D4AF37]/10 hover:border-[#D4AF37]/40 transition-all duration-500 hover:-translate-y-2 shadow-lg hover:shadow-[#D4AF37]/10 group">
-                    <div className="w-14 h-14 bg-[#D4AF37]/10 rounded-xl flex items-center justify-center mb-6 text-[#D4AF37] group-hover:bg-[#D4AF37] group-hover:text-[#121212] transition-colors duration-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-[#E0E0E0] mb-4 group-hover:text-[#D4AF37] transition-colors">مهمتنا</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                        مهمتنا في Salaf AI هي توفير أداة بحثية متقدمة تساعد المسلم في الوصول إلى إجابات دقيقة وموثوقة في المسائل الشرعية. نحن نسخر أحدث تقنيات الذكاء الاصطناعي لخدمة التراث الإسلامي العظيم.
-                    </p>
-                </div>
-
-                {/* Methodology Card */}
-                <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-8 rounded-2xl border border-[#D4AF37]/10 hover:border-[#D4AF37]/40 transition-all duration-500 hover:-translate-y-2 shadow-lg hover:shadow-[#D4AF37]/10 group">
-                    <div className="w-14 h-14 bg-[#D4AF37]/10 rounded-xl flex items-center justify-center mb-6 text-[#D4AF37] group-hover:bg-[#D4AF37] group-hover:text-[#121212] transition-colors duration-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-[#E0E0E0] mb-4 group-hover:text-[#D4AF37] transition-colors">منهجيتنا</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                        تستند جميع إجاباتنا إلى مصدرين أساسيين: القرآن الكريم والسنة النبوية الصحيحة، وذلك بفهم الصحابة والتابعين ومن تبعهم بإحسان. نحن نلتزم بالحيادية العلمية ونبتعد عن الآراء الشاذة والمحدثة.
-                    </p>
-                </div>
-            </div>
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-4">عن المشروع</h2>
+          <p className="text-gray-300 max-w-3xl mx-auto leading-relaxed text-base md:text-lg">
+            الهدف من Salaf AI هو تسهيل الوصول إلى العلم الشرعي الموثوق بصياغة واضحة وتجربة استخدام بسيطة، مع الحفاظ على إظهار المنهجية والمراجع قدر الإمكان.
+          </p>
         </div>
       </section>
 
