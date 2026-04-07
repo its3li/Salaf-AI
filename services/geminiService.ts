@@ -48,7 +48,7 @@ const uploadImageToDiscord = async (attachment: Attachment, signal?: AbortSignal
         const data = await response.json();
         return data.url;
     } catch (error) {
-        console.error("Error uploading to Discord:", error);
+        console.error("Error uploading image:", error);
         throw error;
     }
 };

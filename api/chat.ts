@@ -62,11 +62,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const { messages } = req.body;
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.VOID_API_KEY;
 
         if (!apiKey) {
-            console.error('GEMINI_API_KEY is not set');
-            return res.status(500).json({ error: 'Server configuration error' });
+            console.error('GEMINI_API_KEY or VOID_API_KEY is not set');
+            return res.status(500).json({ error: 'Server configuration error: API key not configured' });
         }
 
         // Prepend system instruction
@@ -75,14 +75,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...messages
         ];
 
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        const response = await fetch('https://api.voidai.app/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'kimi',
+                model: 'gpt-4o-mini',
                 messages: finalMessages,
                 temperature: 0.7,
                 max_tokens: 5000,
