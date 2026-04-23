@@ -198,10 +198,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
   // Custom styling for markdown elements to match the theme
   const components = {
     p: ({children}: MarkdownProps) => <p className="mb-4 last:mb-0 leading-[1.8] whitespace-pre-wrap break-words">{processContent(children)}</p>,
-    h1: ({children}: MarkdownProps) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h1>,
-    h2: ({children}: MarkdownProps) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h2>,
-    h3: ({children}: MarkdownProps) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h3>,
-    strong: ({children}: MarkdownProps) => <strong className={`font-bold ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</strong>,
+    h1: ({children}: MarkdownProps) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h1>,
+    h2: ({children}: MarkdownProps) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h2>,
+    h3: ({children}: MarkdownProps) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h3>,
+    strong: ({children}: MarkdownProps) => <strong className={`font-bold ${isUser ? 'text-white' : 'text-white'}`}>{processContent(children)}</strong>,
     em: ({children}: MarkdownProps) => <em className="italic">{processContent(children)}</em>,
     ul: ({children}: MarkdownProps) => <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>,
     ol: ({children}: MarkdownProps) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
