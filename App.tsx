@@ -144,22 +144,20 @@ const App: React.FC = () => {
             <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar relative">
               <div className="max-w-5xl mx-auto w-full h-full flex flex-col">
                 {currentMessages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center select-none px-4 animate-in fade-in duration-500 pb-10">
-                    <div className="flex-1 flex flex-col items-center justify-center w-full">
-                      <img
-                        src="https://i.postimg.cc/RhRmHpj2/1000000424.png"
-                        alt="Salaf AI"
-                        width="240"
-                        height="240"
-                        className="w-52 md:w-64 h-auto mb-6 drop-shadow-[0_0_28px_rgba(212,175,55,0.3)]"
-                      />
-                      <h1 className="text-3xl md:text-4xl text-[#D4AF37] font-bold mb-3 text-center">Salaf AI - باحث السلف</h1>
-                      <p className="text-gray-300 text-center max-w-2xl leading-relaxed font-light mb-8 text-sm md:text-base">
-                        Salaf AI هو ذكاء اصطناعي مصمم للإجابة على أسئلتك في الفقه والعقيدة والسيرة وفق منهج السلف الصالح، مستمداً من القرآن والسنة الصحيحة.
-                      </p>
-                    </div>
+                  <div className="flex-1 flex flex-col items-center justify-center select-none px-4 animate-in fade-in duration-500 pb-10 w-full">
+                    <img
+                      src="https://i.postimg.cc/RhRmHpj2/1000000424.png"
+                      alt="Salaf AI"
+                      width="240"
+                      height="240"
+                      className="w-48 md:w-64 h-auto mb-6 drop-shadow-[0_0_28px_rgba(212,175,55,0.3)]"
+                    />
+                    <h1 className="text-3xl md:text-4xl text-[#D4AF37] font-bold mb-3 text-center">Salaf AI - باحث السلف</h1>
+                    <p className="text-gray-300 text-center max-w-2xl leading-relaxed font-light mb-8 text-sm md:text-base">
+                      Salaf AI هو ذكاء اصطناعي مصمم للإجابة على أسئلتك في الفقه والعقيدة والسيرة وفق منهج السلف الصالح، مستمداً من القرآن والسنة الصحيحة.
+                    </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl shrink-0">
+                    <div className="mt-8 md:mt-16 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl shrink-0">
                       {["ما هو منهج السلف؟", "شرح معنى التوحيد", "حكم تارك الصلاة"].map((q) => (
                         <button
                           key={q}
