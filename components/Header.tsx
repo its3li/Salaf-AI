@@ -14,7 +14,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onHomeClick, is
         <div className="flex items-center gap-3 md:gap-4">
           <button
             onClick={isFocusMode ? onToggleFocus : onToggleSidebar}
-            className={`${isFocusMode ? 'flex' : 'md:hidden hidden'} text-[#E6E7EB] hover:text-[#D4AF37] transition-all p-2 rounded-xl hover:bg-[#D4AF37]/10 border border-transparent hover:border-[#D4AF37]/20`}
+            className={`${isFocusMode ? 'flex' : 'flex md:hidden'} text-[#E6E7EB] hover:text-[#D4AF37] transition-all p-2 rounded-xl hover:bg-[#D4AF37]/10 border border-transparent hover:border-[#D4AF37]/20`}
             aria-label="Toggle Menu"
             title="إظهار القائمة الجانبية"
           >
