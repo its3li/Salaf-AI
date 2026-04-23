@@ -1,4 +1,4 @@
-import { ChatSession, Message } from '../types';
+import { ChatSession } from '../types';
 
 const STORAGE_KEY = 'salaf-ai-chats';
 

@@ -24,10 +24,12 @@
     ]
   },
   "include": [
-    "src",
     "api",
+    "components",
     "services",
     "types.ts",
+    "App.tsx",
+    "index.tsx",
     "vite.config.ts"
   ]
 }

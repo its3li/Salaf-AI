@@ -41,9 +41,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (!isMobile && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const MAX_SIZE_MB = 5;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      alert(`حجم الملف يجب أن لا يتجاوز ${MAX_SIZE_MB} ميجابايت.`);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -67,8 +83,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
     <div className="w-full bg-transparent px-4 pb-6 pt-2 md:px-6 md:pb-8 shrink-0 z-20">
       <div className="max-w-3xl mx-auto flex flex-col gap-2">
         {attachment && (
-          <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333] rounded-xl p-2 pl-4 w-fit animate-in fade-in slide-in-from-bottom-2 shadow-lg mx-1 mb-1">
-            <div className="relative w-10 h-10 bg-black/30 rounded-lg overflow-hidden flex items-center justify-center border border-[#333]">
+          <div className="flex items-center gap-3 bg-[#111111] border border-white/10 rounded-lg p-2 pl-4 w-fit animate-in fade-in slide-in-from-bottom-2 mx-1 mb-1 shadow-sm">
+            <div className="relative w-10 h-10 bg-black/30 rounded-md overflow-hidden flex items-center justify-center border border-white/5">
               {attachment.mimeType.startsWith('image/') ? (
                 <img src={attachment.data} alt="preview" className="w-full h-full object-cover" />
               ) : (
@@ -76,24 +92,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
               )}
             </div>
             <div className="flex flex-col max-w-[120px]">
-              <span className="text-xs text-[#E0E0E0] truncate font-medium">{attachment.name}</span>
+              <span className="text-xs text-[#EAEAEA] truncate font-medium">{attachment.name}</span>
               <span className="text-[10px] text-gray-500 uppercase">{attachment.mimeType.split('/')[1]}</span>
             </div>
             <button
               onClick={removeAttachment}
               className="p-1 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded-lg transition-colors ml-1"
+              aria-label="إزالة المرفق"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </div>
         )}
 
-        <div className="relative flex items-end gap-2 bg-[#0F131B]/90 border border-white/10 shadow-[0_12px_30px_rgba(0,0,0,0.35)] rounded-[22px] p-2 transition-all duration-300 focus-within:border-[#D4AF37]/60 focus-within:shadow-[0_0_20px_rgba(212,175,55,0.18)]">
+        <div className="relative flex items-end gap-2 bg-[#111111] border border-white/10 shadow-sm rounded-xl p-2 transition-all duration-300 focus-within:border-white/20">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 text-white/60 hover:text-[#D4AF37] hover:bg-white/10 shrink-0 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 text-gray-500 hover:text-white hover:bg-white/5 shrink-0 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="إرفاق ملف"
+            aria-label="إرفاق ملف"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
           </button>
@@ -109,8 +127,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={attachment ? 'أضف تعليقاً...' : 'اسأل هنا وفق منهج السلف...'}
-            className="w-full bg-transparent text-[#F1F2F4] px-2 py-2 resize-none focus:outline-none placeholder:text-white/40 text-base leading-6 overflow-y-auto [&::-webkit-scrollbar]:hidden"
+            onKeyDown={handleKeyDown}
+            placeholder={attachment ? 'أضف تعليقاً...' : 'اسأل باحث السلف...'}
+            className="w-full bg-transparent text-[#EAEAEA] px-3 py-2.5 resize-none focus:outline-none placeholder:text-gray-500 text-base leading-6 overflow-y-auto [&::-webkit-scrollbar]:hidden"
             style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
             rows={1}
             disabled={isLoading}
@@ -119,8 +138,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
           {canStop ? (
             <button
               onClick={onStop}
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30"
+              className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
               title="إيقاف الرد"
+              aria-label="إيقاف الرد"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="6" width="12" height="12" rx="2"></rect>
@@ -130,12 +150,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
             <button
               onClick={() => handleSubmit()}
               disabled={(!input.trim() && !attachment) || isLoading}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 ${
                 (!input.trim() && !attachment) || isLoading
-                  ? 'bg-white/10 cursor-not-allowed text-gray-500'
-                  : 'bg-gradient-to-b from-[#D4AF37] to-[#C89D2F] hover:brightness-105 text-[#121212] shadow-lg shadow-[#D4AF37]/30'
+                  ? 'bg-white/5 cursor-not-allowed text-gray-600'
+                  : 'bg-[#D4AF37] text-black hover:bg-[#E5C048] shadow-[0_0_15px_rgba(212,175,55,0.1)]'
               }`}
               title="إرسال"
+              aria-label="إرسال"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-[#121212] border-t-transparent rounded-full animate-spin" />

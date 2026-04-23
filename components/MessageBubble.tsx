@@ -9,6 +9,13 @@ interface MessageBubbleProps {
   onRetry?: (messageId: string) => void;
 }
 
+interface MarkdownProps {
+  children?: React.ReactNode;
+  className?: string;
+  href?: string;
+  inline?: boolean;
+}
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry = false, onRetry }) => {
   const isUser = message.role === 'user';
   const [isCopied, setIsCopied] = useState(false);
@@ -57,8 +64,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
       <button
         type="button"
         onClick={openSources}
-        className="flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-medium text-[#F2D16B] transition-colors hover:bg-[#D4AF37]/20"
+        className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
         title="عرض المصادر"
+        aria-label="عرض المصادر"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
         <span>{sourceButtonLabel}</span>
@@ -82,10 +90,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
 
   const formattedTime = toArabicNumerals(message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
-  const closeSources = () => setShowSources(false);
-
-  const sourceModalTitle = hasSources ? `المصادر (${sourceCountLabel})` : 'المصادر';
-
   const shouldShowCopyButton = !message.isError && !isUser;
 
   const shouldShowRetryButton = Boolean(message.isError && canRetry && onRetry);
@@ -96,18 +100,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
     }
   };
 
-  const renderSourceList = () => (
-    <ul className="space-y-4">
-      {sourcesList.map((source, index) => (
-        <li key={index} className="flex gap-3 text-[#E0E0E0] text-sm leading-relaxed bg-[#121212]/50 p-3 rounded-lg border border-[#333]">
-          <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold font-mono border border-[#D4AF37]/30">
-            {toArabicNumerals((index + 1).toString())}
-          </span>
-          <span>{formatSourceText(source)}</span>
-        </li>
-      ))}
-    </ul>
-  );
 
   const renderTrailingActions = () => {
     if (isUser) return null;
@@ -119,7 +111,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
         {shouldShowCopyButton && (
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-full hover:bg-white/10 text-[#F2D16B]"
+            className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
             title="نسخ النص"
             aria-label="Copy text"
           >
@@ -141,6 +133,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
             onClick={handleRetryClick}
             className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-200 border border-red-500/30 transition-colors text-xs"
             title="إعادة المحاولة"
+            aria-label="إعادة المحاولة"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path></svg>
             <span>إعادة المحاولة</span>
@@ -178,10 +171,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
       return node.map((n, i) => <React.Fragment key={i}>{processContent(n)}</React.Fragment>);
     }
     if (React.isValidElement(node)) {
-      const props = (node.props as any);
+      const props = node.props as { children?: React.ReactNode };
       if (props.children) {
-        return React.cloneElement(node, {
-          ...props,
+        return React.cloneElement(node as React.ReactElement<{ children?: React.ReactNode }>, {
           children: processContent(props.children)
         });
       }
@@ -198,51 +190,51 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
       // Convert Quran tags to a specific code block language
       .replace(/<p class="quran">([\s\S]*?)<\/p>/g, '\n```quran\n$1\n```\n')
       // Convert Hadith tags to a specific code block language
-      .replace(/<p class="hadith">([\s\S]*?)<\/p>/g, (match, content) => {
+      .replace(/<p class="hadith">([\s\S]*?)<\/p>/g, (_, content) => {
          return `\n\`\`\`hadith\n${content}\n\`\`\`\n`;
       });
   }, [displayContent, isUser]);
 
   // Custom styling for markdown elements to match the theme
   const components = {
-    p: ({children}: any) => <p className="mb-4 last:mb-0 leading-[1.8] whitespace-pre-wrap break-words">{processContent(children)}</p>,
-    h1: ({children}: any) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-[#0F1117]' : 'text-[#F2D16B]'}`}>{processContent(children)}</h1>,
-    h2: ({children}: any) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-[#0F1117]' : 'text-[#F2D16B]'}`}>{processContent(children)}</h2>,
-    h3: ({children}: any) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-[#0F1117]' : 'text-[#F2D16B]'}`}>{processContent(children)}</h3>,
-    strong: ({children}: any) => <strong className={`font-bold ${isUser ? 'text-[#0F1117]' : 'text-[#F2D16B]'}`}>{processContent(children)}</strong>,
-    em: ({children}: any) => <em className="italic">{processContent(children)}</em>,
-    ul: ({children}: any) => <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>,
-    ol: ({children}: any) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
-    li: ({children}: any) => <li className="leading-relaxed marker:text-current">{processContent(children)}</li>,
-    blockquote: ({children}: any) => (
-      <blockquote className={`border-r-4 pr-4 py-2 my-4 italic rounded-l-lg ${
+    p: ({children}: MarkdownProps) => <p className="mb-4 last:mb-0 leading-[1.8] whitespace-pre-wrap break-words">{processContent(children)}</p>,
+    h1: ({children}: MarkdownProps) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h1>,
+    h2: ({children}: MarkdownProps) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h2>,
+    h3: ({children}: MarkdownProps) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h3>,
+    strong: ({children}: MarkdownProps) => <strong className={`font-bold ${isUser ? 'text-white' : 'text-white'}`}>{processContent(children)}</strong>,
+    em: ({children}: MarkdownProps) => <em className="italic">{processContent(children)}</em>,
+    ul: ({children}: MarkdownProps) => <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>,
+    ol: ({children}: MarkdownProps) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
+    li: ({children}: MarkdownProps) => <li className="leading-relaxed marker:text-current">{processContent(children)}</li>,
+    blockquote: ({children}: MarkdownProps) => (
+      <blockquote className={`border-r-2 pr-4 py-1.5 my-4 italic rounded-l-sm ${
         isUser 
-          ? 'border-black/30 bg-black/5' 
-          : 'border-[#D4AF37] bg-[#1E1E1E] text-gray-300'
+          ? 'border-white/20 bg-white/5 text-gray-300' 
+          : 'border-[#D4AF37]/50 bg-[#D4AF37]/5 text-gray-300'
       }`}>
         {processContent(children)}
       </blockquote>
     ),
-    a: ({href, children}: any) => (
+    a: ({href, children}: MarkdownProps) => (
       <a 
         href={href} 
         target="_blank" 
         rel="noopener noreferrer" 
         className={`underline decoration-1 underline-offset-2 transition-colors ${
-          isUser ? 'text-black hover:text-black/70' : 'text-[#D4AF37] hover:text-[#F7D560]'
+          isUser ? 'text-white hover:text-gray-300' : 'text-white hover:text-gray-300 font-medium'
         }`}
       >
         {processContent(children)}
       </a>
     ),
-    code: ({node, inline, className, children, ...props}: any) => {
-      const match = /language-(\w+)/.exec(className || '');
-      const lang = match ? match[1] : '';
+    code: ({inline, className, children}: MarkdownProps) => {
+      const classMatch = /language-(\w+)/.exec(className || '');
+      const lang = classMatch ? classMatch[1] : '';
 
       // Custom Renderers for our hijacked blocks
       if (!inline && lang === 'quran') {
         return (
-            <div className="quran whitespace-pre-wrap break-words max-w-full">
+            <div className="quran whitespace-pre-wrap break-words max-w-full text-[#D4AF37] leading-[2.2] font-medium">
                 {toArabicNumerals(String(children).replace(/\n$/, ''))}
             </div>
         );
@@ -261,16 +253,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
         }
 
         return (
-            <div className="hadith whitespace-pre-wrap break-words max-w-full">
+            <div className="hadith whitespace-pre-wrap break-words max-w-full text-[#D4AF37] leading-[2]">
                 <p>{toArabicNumerals(mainText)}</p>
-                {sourceText && <span className="source">{toArabicNumerals(sourceText)}</span>}
+                {sourceText && <span className="source block mt-2 text-sm opacity-80 text-[#D4AF37]/80">{toArabicNumerals(sourceText)}</span>}
             </div>
         );
       }
 
       if (inline) {
         return <code className={`px-1.5 py-0.5 rounded font-mono text-xs mx-1 ${
-          isUser ? 'bg-black/10 text-[#0F1117]' : 'bg-[#1A1F2B] text-[#F2D16B] border border-white/10'
+          isUser ? 'bg-white/10 text-white' : 'bg-white/10 text-gray-200 border border-white/5'
         }`}>{processContent(children)}</code>;
       }
       
@@ -285,36 +277,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
       );
     },
     // Table Elements
-    table: ({children}: any) => (
+    table: ({children}: MarkdownProps) => (
       <div className="overflow-x-auto my-4 rounded-xl border border-white/10 bg-[#0D111A]/60 max-w-full">
         <table className={`min-w-full border-collapse table-fixed text-right ${isUser ? 'text-[#0F1117]' : 'text-[#E8ECF5]'}`}>
           {children}
         </table>
       </div>
     ),
-    thead: ({children}: any) => (
+    thead: ({children}: MarkdownProps) => (
       <thead className={isUser ? 'bg-black/10' : 'bg-[#1E1E1E] border-b border-[#D4AF37]/30'}>
         {children}
       </thead>
     ),
-    tbody: ({children}: any) => (
+    tbody: ({children}: MarkdownProps) => (
       <tbody className={`divide-y ${isUser ? 'divide-black/10' : 'divide-[#333]'}`}>
         {children}
       </tbody>
     ),
-    tr: ({children}: any) => (
+    tr: ({children}: MarkdownProps) => (
       <tr className={`transition-colors ${isUser ? 'hover:bg-black/5' : 'hover:bg-[#1E1E1E]'}`}>
         {children}
       </tr>
     ),
-    th: ({children}: any) => (
+    th: ({children}: MarkdownProps) => (
       <th className={`px-4 py-3 font-bold text-sm align-top ${
         isUser ? 'text-black border-black/20' : 'text-[#D4AF37] border-[#D4AF37]/30'
       }`}>
         {processContent(children)}
       </th>
     ),
-    td: ({children}: any) => (
+    td: ({children}: MarkdownProps) => (
       <td className={`px-4 py-3 text-sm border-l align-top break-words ${
         isUser ? 'border-black/10' : 'border-[#D4AF37]/10'
       }`}>
@@ -325,13 +317,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
 
   return (
     <>
-      <article className={`flex w-full mb-8 ${isUser ? 'justify-start' : ''}`} aria-label={isUser ? "User message" : "Salaf AI response"}>
+      <article className={`flex w-full mb-8 ${isUser ? 'justify-end' : 'justify-start'}`} aria-label={isUser ? "User message" : "Salaf AI response"}>
         <div
           className={`relative text-base overflow-hidden transition-all duration-300 group
           ${
             isUser
-              ? 'max-w-[88%] md:max-w-[78%] rounded-2xl px-5 py-4 shadow-[0_10px_22px_rgba(212,175,55,0.22)] bg-gradient-to-br from-[#F3D77A] to-[#C79A2B] text-[#111318] rounded-br-none font-semibold border border-[#F3D77A]/60'
-              : 'w-full text-[#E8ECF5] font-light leading-[1.85] border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.2)] rounded-2xl p-5 bg-[#0E121B]/70 backdrop-blur-md'
+              ? 'max-w-[88%] md:max-w-[78%] rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-sm bg-[#1A1A1A] text-[#EAEAEA] border border-white/10'
+              : 'w-full text-[#EAEAEA] font-light leading-[1.8] bg-transparent'
           }
           ${message.isError ? 'border-red-500 border bg-red-900/20 text-red-200 rounded-lg px-6 py-4' : ''}
           `}
@@ -364,7 +356,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
           )}
 
           <div className={trailingMetaClassName}>
-            <div className={`text-[10px] opacity-70 ${isUser ? 'text-[#151922]' : 'text-[#F2D16B]'}`}>
+            <div className={`text-[10px] opacity-50 ${isUser ? 'text-gray-400' : 'text-gray-500'}`}>
               {formattedTime}
             </div>
 
@@ -380,24 +372,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowSources(false)}
           />
-          <div className="relative w-full max-w-lg bg-[#0E121B] border border-[#D4AF37]/30 rounded-2xl shadow-2xl p-6 md:p-8 transform transition-all animate-in zoom-in-95">
+          <div className="relative w-full max-w-lg bg-[#111111] border border-white/10 rounded-xl shadow-sm p-6 md:p-8 transform transition-all animate-in zoom-in-95">
             <button
               onClick={() => setShowSources(false)}
-              className="absolute top-4 left-4 text-gray-400 hover:text-[#D4AF37] transition-colors"
+              className="absolute top-4 left-4 text-gray-500 hover:text-white transition-colors"
+              aria-label="إغلاق المصادر"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
             
-            <h3 className="text-xl font-bold text-[#D4AF37] mb-6 flex items-center gap-2 pb-4 border-b border-[#333]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <h3 className="text-lg font-semibold text-[#EAEAEA] mb-6 flex items-center gap-2 pb-4 border-b border-white/5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
               المصادر والمراجع
             </h3>
             
             <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pl-2">
               <ul className="space-y-4">
                 {sourcesList.map((source, index) => (
-                  <li key={index} className="flex gap-3 text-[#E0E0E0] text-sm leading-relaxed bg-[#121212]/50 p-3 rounded-lg border border-[#333]">
-                    <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold font-mono border border-[#D4AF37]/30">
+                  <li key={index} className="flex gap-3 text-[#E0E0E0] text-sm leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+                    <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-white/10 text-white text-xs font-bold font-mono border border-white/10">
                       {toArabicNumerals((index + 1).toString())}
                     </span>
                     <span>{formatSourceText(source)}</span>

@@ -52,6 +52,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onInstall }) => {
               setIsVisible(false);
             }}
             className="px-3 py-1.5 bg-[#D4AF37] text-[#121212] text-xs font-bold rounded-lg hover:bg-[#C5A028] transition-colors whitespace-nowrap"
+            aria-label="تثبيت التطبيق"
           >
             تثبيت
           </button>

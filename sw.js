@@ -1,11 +1,10 @@
-const CACHE_NAME = 'salaf-ai-v1';
+const CACHE_NAME = 'salaf-ai-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/index.tsx',
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Cairo:wght@300;400;600;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap'
+  '/logo.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -33,27 +32,23 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // Try to find in cache
       const cachedResponse = await cache.match(event.request);
-      
-      // Network fetch promise
+
       const fetchPromise = fetch(event.request).then((networkResponse) => {
-        // Cache valid responses for next time
         if (networkResponse && networkResponse.status === 200) {
           cache.put(event.request, networkResponse.clone());
         }
         return networkResponse;
-      }).catch(() => {
-        // If network fails and we don't have a cache, we might want to return a fallback
-        // But for this simple app, returning undefined lets the browser handle the error
-      });
+      }).catch(() => undefined);
 
-      // Stale-While-Revalidate: Return cached if available, else wait for network
       return cachedResponse || fetchPromise;
     })
   );

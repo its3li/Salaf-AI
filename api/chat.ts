@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+const ALLOWED_ORIGINS = [
+    'https://salaf-ai.vercel.app',
+    'http://localhost:3000',
+];
 
 const SYSTEM_INSTRUCTION = `
 **IDENTITY AND PERSONA:**
@@ -56,13 +60,36 @@ For any complex jurisprudential question or matters requiring a personal fatwa, 
 * **Final Warning:** Do not mention you are Gemini in any form. Only mention you are a model trained on Islamic texts.
 `;
 
+function setCorsHeaders(req: VercelRequest, res: VercelResponse): boolean {
+    const origin = req.headers.origin || '';
+    if (ALLOWED_ORIGINS.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    if (req.method === 'OPTIONS') {
+        res.status(204).end();
+        return false;
+    }
+    return true;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (!setCorsHeaders(req, res)) return;
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
         const { messages } = req.body;
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+            return res.status(400).json({ error: 'Invalid request: messages array is required' });
+        }
+
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
@@ -70,7 +97,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(500).json({ error: 'Server configuration error' });
         }
 
-        // Prepend system instruction
         const finalMessages = [
             { role: 'system', content: SYSTEM_INSTRUCTION },
             ...messages
@@ -92,8 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            return res.status(response.status).json({ error: errorText });
+            console.error(`Upstream API error: ${response.status}`);
+            return res.status(502).json({ error: 'Upstream service error' });
         }
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -119,6 +145,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     } catch (error: any) {
         console.error('API Error:', error);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }

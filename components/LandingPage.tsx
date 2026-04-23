@@ -7,13 +7,9 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstallClick }) => {
   return (
-    <div className="min-h-screen w-full flex flex-col relative overflow-hidden bg-[#0a0a0a]">
-      {/* Background Ambience */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-[#D4AF37]/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-[#D4AF37]/5 rounded-full blur-[100px]" />
-      </div>
-
+    <div className="min-h-screen w-full flex flex-col relative overflow-hidden bg-[#0A0A0A]">
+      {/* Subtle Background Pattern */}
+      <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#D4AF37 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       {/* Navigation */}
       <nav className="relative z-10 w-full px-6 py-6 md:px-12 flex justify-between items-center">
         <div className="flex items-center gap-3">
@@ -22,14 +18,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             alt="Salaf AI Logo" 
             width="48"
             height="48"
-            className="h-12 w-auto object-contain drop-shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+            className="h-10 w-auto object-contain"
           />
-          <span className="text-xl font-bold text-[#E0E0E0] tracking-wider">Salaf AI</span>
+          <span className="text-xl font-bold text-[#EAEAEA] tracking-wide">Salaf AI</span>
         </div>
         <div className="flex items-center gap-6">
           <button 
             onClick={onStartChat}
-            className="px-6 py-2 rounded-full border border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#121212] transition-all duration-300 text-sm font-semibold"
+            className="px-5 py-2 rounded-lg border border-[#D4AF37]/20 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-colors text-sm font-medium"
+            aria-label="الدخول للتطبيق"
           >
             الدخول للتطبيق
           </button>
@@ -41,22 +38,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
         <div className="animate-in fade-in slide-in-from-bottom-10 duration-1000 flex flex-col items-center">
           
           {/* Disclaimer moved here */}
-          <div className="max-w-3xl mx-auto py-3 px-6 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#D4AF37] text-sm mb-8 font-medium leading-loose shadow-[0_0_15px_rgba(212,175,55,0.05)]">
+          <div className="max-w-3xl mx-auto py-2.5 px-5 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-xs md:text-sm mb-10 font-medium leading-relaxed">
             هذه الأداة مساعد بحثي لطالب العلم، وليست بديلاً عن العلماء. في الفتاوى الخاصة والنوازل يُرجع إلى أهل العلم المختصين.
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8a7020] mb-6 drop-shadow-sm leading-tight">
+          <h1 className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8a7020] mb-4 tracking-tight leading-tight">
             باحث السلف
             <br />
-            <span className="text-3xl md:text-5xl text-[#E0E0E0] mt-4 block font-light">للعلم الشرعي </span>
+            <span className="text-3xl md:text-5xl text-gray-400 mt-2 block font-medium">للعلم الشرعي </span>
           </h1>
-          <p className="max-w-2xl mx-auto text-gray-300 text-base md:text-lg leading-relaxed mb-10">
+          <p className="max-w-2xl mx-auto text-gray-400 text-base md:text-lg leading-relaxed mb-10 mt-6">
             أداة بحثية تساعدك على الوصول السريع إلى الجواب الشرعي، مع إظهار المنهجية والمراجع قدر الإمكان.
           </p>
           
           <button 
             onClick={onStartChat}
-            className="group relative px-8 py-4 bg-[#D4AF37] text-[#121212] font-bold text-lg rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:scale-105 transition-all duration-300"
+            className="group relative px-8 py-3.5 bg-[#D4AF37] text-black font-semibold text-base rounded-lg hover:bg-[#E5C048] transition-colors duration-200 shadow-sm"
+            aria-label="ابدأ البحث الآن"
           >
             <span className="flex items-center gap-2">
               ابدأ البحث الآن
@@ -69,33 +67,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
         </div>
       </main>
 
-      <section className="relative z-10 w-full bg-[#121212]/50 backdrop-blur-xl border-t border-[#333]">
+      <section className="relative z-10 w-full bg-[#0E0E0E] border-t border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-24">
           <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-bold text-[#E0E0E0] mb-4">كيف يعمل باحث السلف؟</h2>
-            <p className="text-gray-300 max-w-2xl mx-auto leading-relaxed text-base md:text-lg">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#EAEAEA] mb-4 tracking-tight">كيف يعمل باحث السلف؟</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed text-base md:text-lg">
               صُمم ليكون أداة بحث تساعدك على الوصول السريع للجواب، مع إبراز المنهجية والتنبيه إلى أن مسائل الفتوى الخاصة تُرجع لأهل العلم.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
-              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">المرجعية</h3>
-              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+            <div className="bg-[#111111] p-8 rounded-xl border border-white/5">
+              <h3 className="text-lg font-semibold text-[#EAEAEA] mb-2">المرجعية</h3>
+              <p className="text-gray-400 leading-relaxed text-sm md:text-base">
                 يعتمد الجواب على القرآن الكريم والسنة الصحيحة، مع اعتبار فهم السلف الصالح وأقوال أهل العلم المعتبرين.
               </p>
             </div>
 
-            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
-              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">طريقة العرض</h3>
-              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+            <div className="bg-[#111111] p-8 rounded-xl border border-white/5">
+              <h3 className="text-lg font-semibold text-[#EAEAEA] mb-2">طريقة العرض</h3>
+              <p className="text-gray-400 leading-relaxed text-sm md:text-base">
                 يركّز على الجواب الواضح، مع إظهار المصادر والمراجع داخل الرد لتسهيل المراجعة وعدم الاكتفاء بالنص المجرد.
               </p>
             </div>
 
-            <div className="bg-[#1E1E1E]/50 backdrop-blur-sm p-7 rounded-2xl border border-[#D4AF37]/10">
-              <h3 className="text-xl font-bold text-[#D4AF37] mb-3">الحدود</h3>
-              <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+            <div className="bg-[#111111] p-8 rounded-xl border border-white/5">
+              <h3 className="text-lg font-semibold text-[#EAEAEA] mb-2">الحدود</h3>
+              <p className="text-gray-400 leading-relaxed text-sm md:text-base">
                 هو مساعد بحثي وليس بديلاً عن العلماء، ولذلك تبقى النوازل والفتاوى الخاصة بحاجة إلى الرجوع لأهل العلم المختصين.
               </p>
             </div>
@@ -103,26 +101,128 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
         </div>
       </section>
 
-      <section id="about" className="relative z-10 w-full bg-[#0a0a0a] border-t border-[#333] py-24">
+      <section className="relative z-10 w-full bg-[#0A0A0A] border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-24">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#EAEAEA] mb-4 tracking-tight">الأسئلة الشائعة</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed text-base md:text-lg">
+              إجابات على أكثر الأسئلة التي يطرحها المستخدمون حول أداة باحث السلف.
+            </p>
+          </div>
+
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": [
+                {
+                  "@type": "Question",
+                  "name": "هل تطبيق باحث السلف موثوق ويعتمد عليه في الفتوى؟",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "باحث السلف صُمم ليقدم إجابات مبنية على القرآن الكريم والسنة النبوية الصحيحة بفهم السلف الصالح. مع ذلك، نؤكد أنه مجرد أداة بحثية مساعدة ولا يُغني إطلاقاً عن استشارة أهل العلم الراسخين في الفتاوى المعاصرة أو النوازل الشخصية."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "كيف أستطيع الاستفادة من باحث السلف في طلب العلم؟",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "يمكنك سؤاله عن معاني الآيات، صحة الأحاديث وشرحها، مسائل العقيدة والتوحيد، وأحكام الفقه المُبسّطة. كما يقوم بذكر المصادر والمراجع متى ما توفرت لكي تعود إليها بنفسك."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "هل التطبيق مجاني بالكامل؟",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "نعم، التطبيق متاح بشكل مجاني بالكامل لمساعدة المسلمين وِطلبة العلم، ويستمر هذا المشروع بجهود ذاتية وبدعمكم."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "ما هي مصادر المعلومات التي يعتمد عليها الذكاء الاصطناعي هنا؟",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "يعتمد الجواب بالمقام الأول على كتب التفاسير المعتمدة (كابن كثير والطبري)، وكتب الحديث وشروحها، وكتب العقيدة والفقه لأئمة السلف، وفتاوى اللجان العلمية المعتبرة."
+                  }
+                }
+              ]
+            })}}
+          />
+
+          <div className="space-y-4 text-right">
+            <details className="group bg-[#111111] rounded-xl border border-white/5 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 cursor-pointer font-semibold text-[#EAEAEA] list-none">
+                <span>هل تطبيق باحث السلف موثوق ويعتمد عليه في الفتوى؟</span>
+                <span className="shrink-0 transition-transform group-open:-rotate-180">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+              </summary>
+              <div className="px-6 pb-6 text-gray-400 text-sm md:text-base leading-relaxed">
+                باحث السلف صُمم ليقدم إجابات مبنية على القرآن الكريم والسنة النبوية الصحيحة بفهم السلف الصالح. مع ذلك، نؤكد أنه <strong>مجرد أداة بحثية مساعدة ولا يُغني إطلاقاً عن استشارة أهل العلم الراسخين</strong> في الفتاوى المعاصرة أو النوازل الشخصية.
+              </div>
+            </details>
+
+            <details className="group bg-[#111111] rounded-xl border border-white/5 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 cursor-pointer font-semibold text-[#EAEAEA] list-none">
+                <span>كيف أستطيع الاستفادة من باحث السلف في طلب العلم؟</span>
+                <span className="shrink-0 transition-transform group-open:-rotate-180">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+              </summary>
+              <div className="px-6 pb-6 text-gray-400 text-sm md:text-base leading-relaxed">
+                يمكنك سؤاله عن معاني الآيات، صحة الأحاديث وشرحها، مسائل العقيدة والتوحيد، وأحكام الفقه المُبسّطة. كما يقوم بذكر المصادر والمراجع متى ما توفرت لكي تعود إليها وتتأكد بنفسك.
+              </div>
+            </details>
+
+            <details className="group bg-[#111111] rounded-xl border border-white/5 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 cursor-pointer font-semibold text-[#EAEAEA] list-none">
+                <span>هل التطبيق مجاني بالكامل؟</span>
+                <span className="shrink-0 transition-transform group-open:-rotate-180">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+              </summary>
+              <div className="px-6 pb-6 text-gray-400 text-sm md:text-base leading-relaxed">
+                نعم، التطبيق متاح بشكل مجاني بالكامل لوجه الله تعالى لمساعدة المسلمين وِطلبة العلم، ويستمر هذا المشروع بدعمكم ومساهماتكم لنشر الخير.
+              </div>
+            </details>
+
+            <details className="group bg-[#111111] rounded-xl border border-white/5 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 cursor-pointer font-semibold text-[#EAEAEA] list-none">
+                <span>ما هي مصادر المعلومات التي يعتمد عليها الذكاء الاصطناعي؟</span>
+                <span className="shrink-0 transition-transform group-open:-rotate-180">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+              </summary>
+              <div className="px-6 pb-6 text-gray-400 text-sm md:text-base leading-relaxed">
+                يعتمد الجواب بالمقام الأول على كتب التفاسير المعتمدة (كابن كثير والطبري)، وكتب الحديث وشروحها، وكتب العقيدة والفقه لأئمة السلف، وفتاوى اللجان العلمية المعتبرة.
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" className="relative z-10 w-full bg-[#0A0A0A] border-t border-white/5 py-24">
         <div className="max-w-5xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-4">عن المشروع</h2>
-          <p className="text-gray-300 max-w-3xl mx-auto leading-relaxed text-base md:text-lg">
+          <h2 className="text-2xl md:text-3xl font-bold text-[#EAEAEA] mb-4">عن المشروع</h2>
+          <p className="text-gray-400 max-w-3xl mx-auto leading-relaxed text-base md:text-lg">
             الهدف من Salaf AI هو تسهيل الوصول إلى العلم الشرعي الموثوق بصياغة واضحة وتجربة استخدام بسيطة، مع الحفاظ على إظهار المنهجية والمراجع قدر الإمكان.
           </p>
         </div>
       </section>
 
-      {/* Download App Section (New) */}
-      <section className="relative z-10 w-full pt-20 px-6">
+      <section className="relative z-10 w-full pt-16 px-6">
           <div className="max-w-4xl mx-auto">
-             <div className="relative overflow-hidden rounded-3xl bg-[#1E1E1E]/40 border border-[#D4AF37]/20 p-8 flex flex-col md:flex-row items-center justify-between gap-6 hover:bg-[#1E1E1E]/60 transition-colors duration-300">
+             <div className="relative overflow-hidden rounded-2xl bg-[#0E0E0E] border border-white/5 p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 hover:bg-[#111111] transition-colors duration-300">
                  
                  <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-right">
-                    <div className="w-16 h-16 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center text-[#D4AF37] border border-[#D4AF37]/20 shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                    <div className="w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center text-[#EAEAEA] shrink-0 border border-white/5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-[#E0E0E0] mb-2">حمل تطبيق باحث السلف</h3>
+                        <h3 className="text-lg font-semibold text-[#EAEAEA] mb-1.5">حمل تطبيق باحث السلف</h3>
                         <p className="text-gray-400 text-sm max-w-md leading-relaxed">
                             لتجربة استخدام أسرع ووصول مباشر بدون متصفح، قم بتثبيت التطبيق على شاشتك الرئيسية الآن.
                         </p>
@@ -131,24 +231,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
 
                  <button 
                    onClick={onInstallClick}
-                   className="px-6 py-3 bg-[#D4AF37]/10 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-[#121212] border border-[#D4AF37]/30 font-bold rounded-xl transition-all duration-300 whitespace-nowrap flex items-center gap-2 shrink-0"
+                   className="px-6 py-2.5 bg-[#D4AF37] text-black font-medium rounded-lg hover:bg-[#E5C048] transition-colors duration-200 whitespace-nowrap flex items-center gap-2 shrink-0 text-sm"
+                   aria-label="تثبيت التطبيق"
                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     <span>تثبيت التطبيق</span>
                  </button>
              </div>
           </div>
       </section>
 
-      {/* Donation Section */}
       <section className="relative z-10 w-full py-20 px-6">
           <div className="max-w-4xl mx-auto">
-             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1E1E1E] to-[#000000] border border-[#D4AF37]/30 shadow-[0_0_40px_rgba(212,175,55,0.1)] p-8 md:p-12 text-center">
-                 {/* Decorative background glow */}
-                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/10 blur-[80px] rounded-full pointer-events-none"></div>
+             <div className="relative overflow-hidden rounded-2xl bg-[#0E0E0E] border border-white/5 p-8 md:p-12 text-center">
                  
-                 <h2 className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-6 relative z-10">ساهم في استمرار هذا الخير</h2>
-                 <p className="text-gray-300 text-lg leading-relaxed mb-8 max-w-2xl mx-auto relative z-10">
+                 <h2 className="text-2xl md:text-3xl font-bold text-[#EAEAEA] mb-4 relative z-10">ساهم في استمرار هذا الخير</h2>
+                 <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-8 max-w-2xl mx-auto relative z-10">
                     هذا المشروع قائم بجهود ذاتية لخدمة طلاب العلم. مساهمتك تساعدنا في تغطية تكاليف الخوادم وتطوير النماذج لتبقى هذه الخدمة متاحة ومجانية للجميع. اجعلها صدقة جارية لك.
                  </p>
                  
@@ -156,17 +254,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
                    href="https://ko-fi.com/its3li"
                    target="_blank"
                    rel="noopener noreferrer"
-                   className="relative z-10 px-8 py-4 bg-gradient-to-r from-[#D4AF37] to-[#B59220] hover:from-[#E5C048] hover:to-[#C6A331] text-[#121212] font-bold text-lg rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 inline-flex items-center justify-center gap-2 mx-auto"
+                   className="relative z-10 px-8 py-3.5 bg-[#D4AF37] text-black font-semibold text-sm rounded-lg hover:bg-[#E5C048] transition-colors duration-200 inline-flex items-center justify-center gap-2 mx-auto"
                  >
                     <span>ادعم المشروع الآن</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                  </a>
              </div>
           </div>
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 w-full py-8 text-center border-t border-[#333] bg-[#000]">
+      <footer className="relative z-10 w-full py-8 text-center border-t border-white/5 bg-[#0A0A0A]">
         <div className="flex justify-center items-center gap-6 mb-4">
             {/* Facebook */}
             <a href="https://www.facebook.com/share/1FY1sZzk19/" target="_blank" rel="noopener noreferrer" className="text-[#777] hover:text-[#D4AF37] transition-colors duration-300" aria-label="Facebook">
@@ -179,11 +277,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             </a>
             
             {/* TikTok */}
-            <a href="https://www.tiktok.com/@o1_18" target="_blank" rel="noopener noreferrer" className="text-[#777] hover:text-[#D4AF37] transition-colors duration-300" aria-label="TikTok">
+            <a href="https://www.tiktok.com/@o1_18" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors duration-300" aria-label="TikTok">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93v6.16c0 2.52-1.12 4.88-2.91 6.52-1.78 1.63-4.15 2.54-6.55 2.52-1.57-.01-3.13-.42-4.52-1.18-1.4-.76-2.61-1.85-3.52-3.16-.91-1.32-1.48-2.83-1.64-4.43-.16-1.6.03-3.21.55-4.73.52-1.51 1.4-2.88 2.54-3.98 1.15-1.11 2.57-1.92 4.11-2.34 1.54-.43 3.16-.47 4.73-.12V5.5c-1.28-.48-2.68-.62-4.03-.41-1.35.21-2.62.83-3.65 1.77-1.02.94-1.72 2.18-1.99 3.53-.27 1.35-.14 2.75.37 4.04.51 1.28 1.38 2.4 2.51 3.2 1.13.8 2.47 1.26 3.86 1.31 1.38.06 2.75-.32 3.94-1.08 1.18-.76 2.14-1.84 2.72-3.12.06-.13.12-.27.17-.41V.02h3.91z"/></svg>
             </a>
         </div>
-        <p className="text-[#555] text-sm">© 2025 Salaf AI. جميع الحقوق محفوظة.</p>
+        <p className="text-gray-500 text-sm">© 2025 Salaf AI. جميع الحقوق محفوظة.</p>
       </footer>
     </div>
   );
