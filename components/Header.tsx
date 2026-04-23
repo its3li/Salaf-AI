@@ -50,7 +50,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onHomeClick, is
               />
             </div>
             <h1 className="text-lg md:text-xl font-bold text-[#D4AF37] tracking-wide flex items-center gap-2">
-              <span>Salaf AI</span>
+              <span className="font-bold text-lg tracking-wide text-[#E8D499] drop-shadow-[0_0_10px_rgba(212,175,55,0.4)]">
+                Salaf AI
+              </span>
               <span className="hidden sm:inline text-white/30 text-sm font-normal">|</span>
               <span className="hidden sm:inline text-gray-400 text-base">باحث السلف</span>
             </h1>
@@ -59,13 +61,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onHomeClick, is
 
         <div className="flex items-center gap-3">
           <a
-            href="https://ko-fi.com/its3li"
+            href="https://github.com/its3li/Salaf-AI"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 text-gray-300 bg-white/5 hover:bg-white/10 hover:text-white transition-all duration-200 text-sm font-medium"
+            className="flex items-center gap-1.5 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-300 transition-all"
+            title="ادعم المشروع"
           >
-            <span className="hidden sm:inline">ادعم المشروع</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span>ادعم المشروع</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
           </a>
         </div>
       </div>

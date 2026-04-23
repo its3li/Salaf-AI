@@ -80,7 +80,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
   };
 
   return (
-    <div className="w-full bg-transparent px-4 pb-6 pt-2 md:px-6 md:pb-8 shrink-0 z-20">
+    <div className="w-full bg-transparent px-4 pb-3 pt-2 md:px-6 md:pb-4 shrink-0 z-20">
       <div className="max-w-3xl mx-auto flex flex-col gap-2">
         {attachment && (
           <div className="flex items-center gap-3 bg-[#111111] border border-white/10 rounded-lg p-2 pl-4 w-fit animate-in fade-in slide-in-from-bottom-2 mx-1 mb-1 shadow-sm">
@@ -105,7 +105,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, canStop, i
           </div>
         )}
 
-        <div className="relative flex items-end gap-2 bg-[#111111] border border-white/10 shadow-sm rounded-xl p-2 transition-all duration-300 focus-within:border-white/20">
+        <div className="relative flex items-end gap-2 bg-[#111111] border border-[#D4AF37]/20 shadow-[0_0_20px_rgba(212,175,55,0.05)] rounded-xl p-2 transition-all duration-300 focus-within:border-[#D4AF37]/50 focus-within:shadow-[0_0_25px_rgba(212,175,55,0.15)]">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}

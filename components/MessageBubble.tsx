@@ -198,10 +198,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
   // Custom styling for markdown elements to match the theme
   const components = {
     p: ({children}: MarkdownProps) => <p className="mb-4 last:mb-0 leading-[1.8] whitespace-pre-wrap break-words">{processContent(children)}</p>,
-    h1: ({children}: MarkdownProps) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h1>,
-    h2: ({children}: MarkdownProps) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h2>,
-    h3: ({children}: MarkdownProps) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-[#EAEAEA]' : 'text-white'}`}>{processContent(children)}</h3>,
-    strong: ({children}: MarkdownProps) => <strong className={`font-bold ${isUser ? 'text-white' : 'text-white'}`}>{processContent(children)}</strong>,
+    h1: ({children}: MarkdownProps) => <h1 className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h1>,
+    h2: ({children}: MarkdownProps) => <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h2>,
+    h3: ({children}: MarkdownProps) => <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</h3>,
+    strong: ({children}: MarkdownProps) => <strong className={`font-bold ${isUser ? 'text-black' : 'text-[#D4AF37]'}`}>{processContent(children)}</strong>,
     em: ({children}: MarkdownProps) => <em className="italic">{processContent(children)}</em>,
     ul: ({children}: MarkdownProps) => <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>,
     ol: ({children}: MarkdownProps) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
@@ -210,7 +210,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
       <blockquote className={`border-r-2 pr-4 py-1.5 my-4 italic rounded-l-sm ${
         isUser 
           ? 'border-white/20 bg-white/5 text-gray-300' 
-          : 'border-[#D4AF37]/50 bg-[#D4AF37]/5 text-gray-300'
+          : 'border-[#D4AF37]/50 bg-[#D4AF37]/5 text-[#EAEAEA]'
       }`}>
         {processContent(children)}
       </blockquote>
@@ -221,7 +221,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
         target="_blank" 
         rel="noopener noreferrer" 
         className={`underline decoration-1 underline-offset-2 transition-colors ${
-          isUser ? 'text-white hover:text-gray-300' : 'text-white hover:text-gray-300 font-medium'
+          isUser ? 'text-black hover:text-black/70' : 'text-[#D4AF37] hover:text-[#F7D560]'
         }`}
       >
         {processContent(children)}
@@ -262,14 +262,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
 
       if (inline) {
         return <code className={`px-1.5 py-0.5 rounded font-mono text-xs mx-1 ${
-          isUser ? 'bg-white/10 text-white' : 'bg-white/10 text-gray-200 border border-white/5'
+          isUser ? 'bg-black/10 text-black' : 'bg-[#2c2c2c] text-[#D4AF37] border border-[#333]'
         }`}>{processContent(children)}</code>;
       }
       
       return (
-        <div className="my-4 overflow-x-auto rounded-lg border border-white/10 max-w-full">
+        <div className="my-4 overflow-x-auto rounded-lg border border-[#D4AF37]/20 max-w-full shadow-lg shadow-[#D4AF37]/5">
            <pre className={`p-4 font-mono text-xs whitespace-pre-wrap break-words ${
-             isUser ? 'bg-black/5 text-[#0F1117]' : 'bg-[#111622] text-[#CFD4E0]'
+             isUser ? 'bg-[#1E190A] text-[#E8D499]' : 'bg-[#111111] text-[#D4AF37]/90'
            }`}>
              {processContent(children)}
            </pre>
@@ -278,8 +278,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
     },
     // Table Elements
     table: ({children}: MarkdownProps) => (
-      <div className="overflow-x-auto my-4 rounded-xl border border-white/10 bg-[#0D111A]/60 max-w-full">
-        <table className={`min-w-full border-collapse table-fixed text-right ${isUser ? 'text-[#0F1117]' : 'text-[#E8ECF5]'}`}>
+      <div className="overflow-x-auto my-4 rounded-xl border border-[#D4AF37]/20 bg-[#0A0A0A] max-w-full shadow-[0_0_15px_rgba(212,175,55,0.05)]">
+        <table className={`min-w-full border-collapse table-fixed text-right ${isUser ? 'text-[#E8D499]' : 'text-[#EAEAEA]'}`}>
           {children}
         </table>
       </div>
@@ -322,7 +322,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
           className={`relative text-base overflow-hidden transition-all duration-300 group
           ${
             isUser
-              ? 'max-w-[88%] md:max-w-[78%] rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-sm bg-[#1A1A1A] text-[#EAEAEA] border border-white/10'
+              ? 'max-w-[85%] md:max-w-[75%] rounded-2xl px-6 py-4 shadow-[0_4px_15px_rgba(212,175,55,0.15)] bg-gradient-to-br from-[#D4AF37] to-[#C5A028] text-[#000000] rounded-bl-sm font-bold'
               : 'w-full text-[#EAEAEA] font-light leading-[1.8] bg-transparent'
           }
           ${message.isError ? 'border-red-500 border bg-red-900/20 text-red-200 rounded-lg px-6 py-4' : ''}
@@ -356,7 +356,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, canRetry 
           )}
 
           <div className={trailingMetaClassName}>
-            <div className={`text-[10px] opacity-50 ${isUser ? 'text-gray-400' : 'text-gray-500'}`}>
+            <div className={`text-[10px] opacity-70 font-medium ${isUser ? 'text-[#000000]' : 'text-[#D4AF37]'}`}>
               {formattedTime}
             </div>
 
