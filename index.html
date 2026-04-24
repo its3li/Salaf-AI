@@ -9,7 +9,7 @@
     <meta name="keywords" content="باحث السلف, ذكاء اصطناعي إسلامي, فتاوى, عقيدة, فقه, منهج السلف, أسئلة دينية, الذكاء الاصطناعي الإسلامي, طلب العلم, إسلام تشات بوت, Salaf AI, Islamic AI">
     
     <!-- Favicon and PWA Setup -->
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/logo-2.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,13 +19,15 @@
     <!-- Social Media Meta Tags -->
     <meta property="og:title" content="Salaf AI | باحث السلف - بحث شرعي موثوق">
     <meta property="og:description" content="اسأل باحث السلف في العقيدة والفقه والسيرة، واحصُل على إجابات موثقة بالدليل من القرآن والسنة بفهم سلف الأمة.">
-    <meta property="og:image" content="https://i.ibb.co/Jj6rH7cT/Make-the-background-2k-202512312336-2.jpg">
+    <meta property="og:url" content="https://salaf-ai.vercel.app">
+    <meta property="og:image" content="https://salaf-ai.vercel.app/banner.jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Salaf AI | باحث السلف">
     <meta name="twitter:description" content="باحث شرعي يعمل بالذكاء الاصطناعي وفق منهج السلف الصالح.">
+    <meta name="twitter:image" content="https://salaf-ai.vercel.app/banner.jpeg">
 
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
@@ -93,21 +95,26 @@
       }
 
       .hadith {
-          /* لون فضي خفيف لتمييز الحديث عن النص */
-          color: #BDBDBD; 
-          font-style: italic; /* خط مائل */
+          color: #E8E0D0;
+          font-style: italic;
+          font-size: 1.05rem;
+          line-height: 2rem;
           margin-top: 1rem;
           margin-bottom: 1rem;
-          padding-right: 0.5rem;
+          border-right: 3px solid rgba(192, 170, 130, 0.4);
+          padding: 0.85rem 1rem 0.85rem 0.5rem;
+          background: linear-gradient(135deg, rgba(192, 170, 130, 0.06) 0%, rgba(192, 170, 130, 0.02) 100%);
+          border-radius: 0 8px 8px 0;
       }
 
       .hadith .source {
-          /* تنسيق مصدر الحديث (مثل رواه البخاري) */
-          font-size: 0.9em;
+          font-size: 0.8em;
           font-style: normal;
-          color: #9CA3AF;
+          color: rgba(192, 170, 130, 0.7);
           display: block;
-          margin-top: 0.5rem;
+          margin-top: 0.65rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid rgba(192, 170, 130, 0.12);
       }
     </style>
   <script type="importmap">

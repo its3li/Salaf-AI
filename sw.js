@@ -1,10 +1,12 @@
-const CACHE_NAME = 'salaf-ai-v2';
+const CACHE_NAME = 'salaf-ai-v3';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/index.tsx',
-  '/logo.png'
+  '/logo.png',
+  '/logo-2.png',
+  '/banner.jpeg'
 ];
 
 self.addEventListener('install', (event) => {

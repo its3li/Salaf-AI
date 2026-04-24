@@ -4,6 +4,17 @@ import { sendMessageToGemini } from '../services/geminiService';
 import { saveChatsToLocalStorage, loadChatsFromLocalStorage } from '../services/chatStorage';
 import { DialogOptions } from './useAppDialog';
 
+const generateId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | string | null>) => {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -56,7 +67,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
   };
 
   const buildUserMessage = (text: string, attachment?: Attachment): Message => ({
-    id: crypto.randomUUID(),
+    id: generateId(),
     role: 'user',
     text,
     attachment,
@@ -96,13 +107,12 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
 
   const cancelPendingRequest = (chatId?: string) => {
     const pending = pendingRequestRef.current;
-    if (!pending) return;
-
-    if (!chatId || pending.chatId === chatId) {
+    if (pending && (!chatId || pending.chatId === chatId)) {
       pending.controller.abort();
       pendingRequestRef.current = null;
-      setLoadingChatId((prev) => (!chatId || prev === chatId ? null : prev));
     }
+    // Always clear loading state, even if ref was already null
+    setLoadingChatId((prev) => (!chatId || prev === chatId ? null : prev));
   };
 
   useEffect(() => {
@@ -119,11 +129,14 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     pendingRequestRef.current = { chatId: targetChatId, controller };
     setLoadingChatId(targetChatId);
 
+    // Auto-timeout after 60 seconds to prevent permanent stuck state
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     try {
       const responseText = await sendMessageToGemini(currentChatHistory, text, attachment, controller.signal);
 
       const botMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: 'model',
         text: responseText,
         timestamp: new Date(),
@@ -131,27 +144,34 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
 
       appendMessageToChat(targetChatId, botMessage);
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return;
+      const isAbort = (error instanceof DOMException && error.name === 'AbortError') ||
+                      (error instanceof Error && error.name === 'AbortError');
+      if (!isAbort) {
+        console.error("Error in chat flow:", error);
+        const errorMessage: Message = {
+          id: generateId(),
+          role: 'model',
+          text: 'عذراً، حدث خطأ أثناء الاتصال بالخدمة. يرجى المحاولة مرة أخرى.',
+          timestamp: new Date(),
+          isError: true
+        };
+        appendMessageToChat(targetChatId, errorMessage);
       }
-      console.error("Error in chat flow:", error);
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: 'عذراً، حدث خطأ أثناء الاتصال بالخدمة. يرجى المحاولة مرة أخرى.',
-        timestamp: new Date(),
-        isError: true
-      };
-      appendMessageToChat(targetChatId, errorMessage);
     } finally {
+      clearTimeout(timeoutId);
+      // Always clean up ref if it's still ours
       if (pendingRequestRef.current?.controller === controller) {
         pendingRequestRef.current = null;
-        setLoadingChatId(null);
       }
+      // Always clear loading for this chat - unconditional
+      setLoadingChatId((prev) => (prev === targetChatId ? null : prev));
     }
   };
 
   const createNewChat = (force: boolean = false, onCloseSidebar?: () => void) => {
+    // Always clear any stuck loading state
+    cancelPendingRequest();
+
     if (!force) {
       const currentChat = chats.find(c => c.id === activeChatId);
       if (currentChat && currentChat.messages.length === 0) {
@@ -160,9 +180,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
       }
     }
 
-    if (activeChatId) cancelPendingRequest(activeChatId);
-
-    const newChatId = crypto.randomUUID();
+    const newChatId = generateId();
     const newChat: ChatSession = {
       id: newChatId,
       title: 'محادثة جديدة',
@@ -178,9 +196,28 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
   };
 
   const handleSendMessage = async (text: string, attachment?: Attachment) => {
-    if (!activeChatId || loadingChatId) return;
-    const currentChatHistory = appendUserMessage(activeChatId, text, attachment);
-    await processMessageRequest(activeChatId, currentChatHistory, text, attachment);
+    let chatId = activeChatId;
+
+    // Auto-create a chat if none exists
+    if (!chatId) {
+      chatId = generateId();
+      const newChat: ChatSession = {
+        id: chatId,
+        title: text.length > 30 ? text.substring(0, 30) + '...' : text || 'محادثة جديدة',
+        messages: [],
+        createdAt: Date.now(),
+      };
+      setChats(prev => {
+        const updated = [newChat, ...prev];
+        saveChatsToLocalStorage(updated);
+        return updated;
+      });
+      setActiveChatId(chatId);
+    }
+
+    if (loadingChatId === chatId) return;
+    const currentChatHistory = appendUserMessage(chatId, text, attachment);
+    await processMessageRequest(chatId, currentChatHistory, text, attachment);
   };
 
   const handleRetryMessage = async (messageId: string) => {
@@ -229,7 +266,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     const remainingChats = chats.filter(c => c.id !== chatId);
 
     if (remainingChats.length === 0) {
-      const newChatId = crypto.randomUUID();
+      const newChatId = generateId();
       const newChat: ChatSession = {
         id: newChatId,
         title: 'محادثة جديدة',
@@ -292,7 +329,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     });
     
     if (confirmClear) {
-      const newChatId = crypto.randomUUID();
+      const newChatId = generateId();
       const newChat: ChatSession = {
         id: newChatId,
         title: 'محادثة جديدة',
