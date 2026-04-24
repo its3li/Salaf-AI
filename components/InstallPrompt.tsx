@@ -34,7 +34,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onInstall }) => {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#D4AF37]/10 rounded-lg flex items-center justify-center border border-[#D4AF37]/30 shrink-0">
             <img 
-              src="https://i.postimg.cc/RhRmHpj2/1000000424.png" 
+              src="/logo.png" 
               alt="Logo" 
               className="w-8 h-8 object-contain"
             />

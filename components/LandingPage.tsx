@@ -20,7 +20,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
       <nav className="relative z-10 w-full px-6 py-6 md:px-12 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <img
-            src="https://i.postimg.cc/RhRmHpj2/1000000424.png"
+            src="/logo.png"
             alt="Salaf AI Logo"
             width="48"
             height="48"

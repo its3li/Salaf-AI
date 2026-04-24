@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <div className="relative">
               <img
-                src="https://i.postimg.cc/RhRmHpj2/1000000424.png"
+                src="/logo.png"
                 alt="Salaf AI Logo"
                 width="40"
                 height="40"

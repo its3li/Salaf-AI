@@ -158,7 +158,7 @@ const App: React.FC = () => {
                   <div className="flex-1 flex flex-col items-center select-none px-4 animate-in fade-in duration-500 pb-10">
                     <div className="flex-1 flex flex-col items-center justify-center w-full">
                       <img
-                        src="https://i.postimg.cc/RhRmHpj2/1000000424.png"
+                        src="/logo.png"
                         alt="Salaf AI"
                         width="240"
                         height="240"
