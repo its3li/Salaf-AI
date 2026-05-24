@@ -109,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.5-flash',
                 messages: finalMessages,
                 temperature: 0.7,
                 stream: true,
