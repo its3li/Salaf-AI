@@ -19,20 +19,26 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
   onCancel
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (isOpen && options?.type === 'rename') {
-      setTimeout(() => inputRef.current?.focus(), 100);
+    if (isOpen) {
+      setTimeout(() => {
+        if (options?.type === 'rename') inputRef.current?.focus();
+        if (options?.type === 'feedback') textareaRef.current?.focus();
+      }, 100);
     }
   }, [isOpen, options]);
 
   if (!isOpen || !options) return null;
 
   const isRename = options.type === 'rename';
+  const isFeedback = options.type === 'feedback';
+  const requiresInput = isRename || isFeedback;
   const isDestructive = options.type === 'confirm' || options.type === 'clearAll';
 
   const handleConfirm = () => {
-    if (isRename) {
+    if (requiresInput) {
       if (!inputValue.trim()) return;
       onConfirm(inputValue.trim());
     } else {
@@ -42,6 +48,11 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleConfirm();
+    if (e.key === 'Escape') onCancel();
+  };
+
+  const handleFeedbackKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleConfirm();
     if (e.key === 'Escape') onCancel();
   };
 
@@ -78,6 +89,19 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
               </div>
             )}
 
+            {isFeedback && (
+              <div className="mb-6">
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleFeedbackKeyDown}
+                  placeholder="اكتب ما الخطأ أو ما الذي يحتاج إلى تصحيح..."
+                  className="min-h-32 w-full resize-y rounded-lg border border-white/10 bg-[#0A0A0A] px-4 py-3 text-[#EAEAEA] transition-colors placeholder:text-gray-600 focus:border-white/20 focus:outline-none"
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end mt-4">
               <button
                 onClick={onCancel}
@@ -87,7 +111,7 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={isRename && !inputValue.trim()}
+                disabled={requiresInput && !inputValue.trim()}
                 className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
                   isDestructive 
                     ? 'bg-red-500 hover:bg-red-600 text-white'

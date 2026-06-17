@@ -35,7 +35,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onInstall }) => {
           <div className="w-10 h-10 bg-[#D4AF37]/10 rounded-lg flex items-center justify-center border border-[#D4AF37]/30 shrink-0">
             <img 
               src="/logo.png" 
-              alt="Logo" 
+              alt="شعار Salaf AI" 
               className="w-8 h-8 object-contain"
             />
           </div>
@@ -59,7 +59,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onInstall }) => {
           <button 
             onClick={() => setIsVisible(false)}
             className="p-1.5 text-gray-400 hover:text-white transition-colors"
-            aria-label="Close"
+            aria-label="إغلاق تنبيه التثبيت"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>

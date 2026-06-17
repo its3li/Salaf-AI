@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type DialogType = 'rename' | 'alert' | 'confirm' | 'clearAll';
+export type DialogType = 'rename' | 'feedback' | 'alert' | 'confirm' | 'clearAll';
 
 export interface DialogOptions {
   type: DialogType;
@@ -33,7 +33,7 @@ export const useAppDialog = () => {
   const handleConfirm = useCallback((value?: string) => {
     setIsOpen(false);
     if (resolver) {
-      if (options?.type === 'rename') {
+      if (options?.type === 'rename' || options?.type === 'feedback') {
         resolver.resolve(value || inputValue);
       } else {
         resolver.resolve(true);

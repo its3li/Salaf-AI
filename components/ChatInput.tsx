@@ -7,6 +7,7 @@ interface ChatInputProps {
   onStop: () => void;
   canStop: boolean;
   isLoading: boolean;
+  isDisabled?: boolean;
   input: string;
   setInput: (text: string) => void;
 }
@@ -19,6 +20,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onStop,
   canStop,
   isLoading,
+  isDisabled = false,
   input,
   setInput,
 }) => {
@@ -42,7 +44,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if ((!input.trim() && !attachment) || isLoading) return;
+    if ((!input.trim() && !attachment) || isLoading || isDisabled) return;
 
     onSend(input, attachment);
     setAttachment(undefined);
@@ -147,7 +149,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <div className="flex items-center gap-3 bg-[#111111] border border-[#D4AF37]/20 rounded-lg p-2 pl-4 w-fit animate-in fade-in slide-in-from-bottom-2 mx-1 mb-1 shadow-sm">
             <div className="relative w-10 h-10 bg-[#D4AF37]/10 rounded-md overflow-hidden flex items-center justify-center border border-[#D4AF37]/15">
               {attachment.mimeType.startsWith('image/') ? (
-                <img src={attachment.data} alt="preview" className="w-full h-full object-cover" />
+                <img src={attachment.data} alt="معاينة المرفق" className="w-full h-full object-cover" />
               ) : (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -200,8 +202,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className="relative flex items-end gap-2 bg-[#111111] border border-[#D4AF37]/20 shadow-sm rounded-xl p-2 transition-all duration-300 focus-within:border-[#D4AF37]/40 focus-within:shadow-[0_0_20px_rgba(212,175,55,0.1)]">
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 text-[#D4AF37]/50 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 shrink-0 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isLoading || isDisabled}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 text-[#D4AF37]/50 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 shrink-0 ${
+              isLoading || isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
             title="إرفاق ملف"
             aria-label="إرفاق ملف"
           >
@@ -233,11 +237,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={attachment ? 'أضف تعليقاً...' : 'اسأل باحث السلف...'}
+            placeholder={
+              isDisabled
+                ? 'الاتصال غير متاح حالياً...'
+                : attachment
+                  ? 'أضف تعليقاً...'
+                  : 'اسأل باحث السلف...'
+            }
             className="w-full bg-transparent text-[#EAEAEA] px-3 py-2.5 resize-none focus:outline-none placeholder:text-[#D4AF37]/40 text-base leading-6 overflow-y-auto [&::-webkit-scrollbar]:hidden"
             style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
             rows={1}
-            disabled={isLoading}
+            disabled={isLoading || isDisabled}
           />
 
           {canStop ? (
@@ -260,9 +270,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           ) : (
             <button
               onClick={() => handleSubmit()}
-              disabled={(!input.trim() && !attachment) || isLoading}
+              disabled={(!input.trim() && !attachment) || isLoading || isDisabled}
               className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 ${
-                (!input.trim() && !attachment) || isLoading
+                (!input.trim() && !attachment) || isLoading || isDisabled
                   ? 'bg-white/5 cursor-not-allowed text-gray-600'
                   : 'bg-[#D4AF37] text-black hover:bg-[#E5C048] shadow-[0_0_15px_rgba(212,175,55,0.1)]'
               }`}

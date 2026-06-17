@@ -21,7 +21,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
         <div className="flex items-center gap-3">
           <img
             src="/logo.png"
-            alt="Salaf AI Logo"
+            alt="شعار Salaf AI"
             width="48"
             height="48"
             className="h-10 w-auto object-contain"
@@ -49,7 +49,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8a7020] mb-4 tracking-tight leading-tight">
-            باحث السلف
+            باحث السلف{' '}
             <br />
             <span className="text-3xl md:text-5xl text-gray-400 mt-2 block font-medium">
               للعلم الشرعي{' '}
@@ -410,7 +410,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#777] hover:text-[#D4AF37] transition-colors duration-300"
-            aria-label="Facebook"
+            aria-label="تابع Salaf AI على فيسبوك"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -430,7 +430,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#777] hover:text-[#D4AF37] transition-colors duration-300"
-            aria-label="Instagram"
+            aria-label="تابع Salaf AI على إنستغرام"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -456,7 +456,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartChat, onInstall
             target="_blank"
             rel="noopener noreferrer"
             className="text-gray-500 hover:text-white transition-colors duration-300"
-            aria-label="TikTok"
+            aria-label="تابع Salaf AI على تيك توك"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

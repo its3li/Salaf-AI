@@ -183,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-gray-400 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10'
                         }`}
                         title="إعادة تسمية المحادثة"
-                        aria-label="Rename chat"
+                        aria-label="إعادة تسمية المحادثة"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -214,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
                         }`}
                         title="حذف المحادثة"
-                        aria-label="Delete chat"
+                        aria-label="حذف المحادثة"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

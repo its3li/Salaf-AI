@@ -1,5 +1,47 @@
 import { Message, Attachment } from "../types";
 
+type ChatContent =
+    | string
+    | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+
+interface ApiMessage {
+    role: 'user' | 'assistant';
+    content: ChatContent;
+}
+
+interface StreamContentPart {
+    text?: string;
+}
+
+interface StreamPayload {
+    choices?: Array<{
+        delta?: { content?: string | StreamContentPart[] };
+        message?: { content?: string };
+    }>;
+}
+
+interface ApiErrorResponse {
+    error?: {
+        code?: string;
+        message?: string;
+        requestId?: string;
+    } | string;
+}
+
+export class ChatServiceError extends Error {
+    status?: number;
+    code?: string;
+    requestId?: string;
+
+    constructor(message: string, options: { status?: number; code?: string; requestId?: string } = {}) {
+        super(message);
+        this.name = 'ChatServiceError';
+        this.status = options.status;
+        this.code = options.code;
+        this.requestId = options.requestId;
+    }
+}
+
 const compressImage = (base64Str: string, maxWidth = 1024, quality = 0.7): Promise<string> => {
     return new Promise((resolve) => {
         try {
@@ -36,7 +78,7 @@ const compressImage = (base64Str: string, maxWidth = 1024, quality = 0.7): Promi
     });
 };
 
-const extractStreamText = (payload: any): string => {
+const extractStreamText = (payload: StreamPayload): string => {
     const choice = payload?.choices?.[0];
 
     if (!choice) return "";
@@ -51,14 +93,22 @@ const extractStreamText = (payload: any): string => {
 
     if (Array.isArray(choice?.delta?.content)) {
         return choice.delta.content
-            .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+            .map((part) => (typeof part?.text === 'string' ? part.text : ''))
             .join('');
     }
 
     return "";
 };
 
-const callBackendApi = async (messages: any[], signal?: AbortSignal) => {
+const parseApiError = (rawText: string): ApiErrorResponse | null => {
+    try {
+        return JSON.parse(rawText) as ApiErrorResponse;
+    } catch {
+        return null;
+    }
+};
+
+const callBackendApi = async (messages: ApiMessage[], signal?: AbortSignal) => {
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
@@ -73,7 +123,18 @@ const callBackendApi = async (messages: any[], signal?: AbortSignal) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API Error ${response.status}: ${errorText}`);
+            const parsedError = parseApiError(errorText);
+            const errorPayload = parsedError?.error;
+            const message =
+                typeof errorPayload === 'object' && errorPayload?.message
+                    ? errorPayload.message
+                    : `API Error ${response.status}`;
+
+            throw new ChatServiceError(message, {
+                status: response.status,
+                code: typeof errorPayload === 'object' ? errorPayload.code : undefined,
+                requestId: typeof errorPayload === 'object' ? errorPayload.requestId : undefined,
+            });
         }
 
         if (!response.body) {
@@ -102,7 +163,7 @@ const callBackendApi = async (messages: any[], signal?: AbortSignal) => {
                 if (!dataPart || dataPart === '[DONE]') continue;
 
                 try {
-                    const payload = JSON.parse(dataPart);
+                    const payload = JSON.parse(dataPart) as StreamPayload;
                     finalText += extractStreamText(payload);
                 } catch {
                     // Ignore malformed chunks and continue parsing the stream.
@@ -114,12 +175,18 @@ const callBackendApi = async (messages: any[], signal?: AbortSignal) => {
             const dataPart = buffer.trim().slice(5).trim();
             if (dataPart && dataPart !== '[DONE]') {
                 try {
-                    const payload = JSON.parse(dataPart);
+                    const payload = JSON.parse(dataPart) as StreamPayload;
                     finalText += extractStreamText(payload);
                 } catch {
                     // Ignore trailing malformed chunk.
                 }
             }
+        }
+
+        if (!finalText.trim()) {
+            throw new ChatServiceError('Empty response from service', {
+                code: 'EMPTY_RESPONSE',
+            });
         }
 
         return finalText;
@@ -135,7 +202,7 @@ export const sendMessageToGemini = async (
     attachment?: Attachment,
     signal?: AbortSignal
 ): Promise<string> => {
-    const apiMessages = [];
+    const apiMessages: ApiMessage[] = [];
 
     const recentHistory = history.slice(-10);
     
@@ -152,11 +219,11 @@ export const sendMessageToGemini = async (
         }
     }
 
-    let userContent: any = text;
+    let userContent: ChatContent = text;
     if (attachment) {
         try {
             const compressedData = await compressImage(attachment.data);
-            const contentArray: any[] = [];
+            const contentArray: Exclude<ChatContent, string> = [];
             if (text.trim()) {
                 contentArray.push({ type: "text", text: text });
             }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salaf-ai-v3';
+const CACHE_NAME = 'salaf-ai-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -39,6 +39,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        return cache.match('/index.html');
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {

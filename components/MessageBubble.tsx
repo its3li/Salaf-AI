@@ -2,11 +2,14 @@ import React, { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '../types';
+import { hasFeedbackForMessage } from '../services/feedbackStorage';
+import { parseMessageSources } from '../services/messageParsing';
 
 interface MessageBubbleProps {
   message: Message;
   canRetry?: boolean;
   onRetry?: (messageId: string) => void;
+  onFeedback?: (messageId: string) => Promise<boolean>;
 }
 
 interface MarkdownProps {
@@ -20,10 +23,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   canRetry = false,
   onRetry,
+  onFeedback,
 }) => {
   const isUser = message.role === 'user';
   const [isCopied, setIsCopied] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(() =>
+    hasFeedbackForMessage(message.id)
+  );
 
   // Helper to convert English numerals to Arabic numerals
   const toArabicNumerals = (str: string) => {
@@ -32,24 +39,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Extract Sources and Clean Text
   const { displayContent, sourcesList } = useMemo(() => {
-    const rawText = message.text || '';
-    const sourceRegex = /\[\[SOURCES_START\]\]([\s\S]*?)\[\[SOURCES_END\]\]/;
-    const match = rawText.match(sourceRegex);
-
-    if (!match) {
-      return { displayContent: rawText, sourcesList: [] };
-    }
-
-    const sources = match[1]
-      .trim()
-      .split('\n')
-      .map((source) => source.trim())
-      .filter(Boolean);
-
-    return {
-      displayContent: rawText.replace(sourceRegex, '').trim(),
-      sourcesList: sources,
-    };
+    return parseMessageSources(message.text || '');
   }, [message.text]);
 
   const hasSources = sourcesList.length > 0;
@@ -112,6 +102,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   );
 
   const shouldShowCopyButton = !message.isError && !isUser;
+  const shouldShowFeedbackButton = !message.isError && !isUser;
+  const feedbackButtonLabel = hasSubmittedFeedback ? 'إرسال ملاحظة أخرى' : 'الإجابة غير دقيقة؟';
 
   const shouldShowRetryButton = Boolean(message.isError && canRetry && onRetry);
 
@@ -119,6 +111,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (onRetry) {
       onRetry(message.id);
     }
+  };
+
+  const handleFeedbackClick = () => {
+    if (!onFeedback) return;
+
+    void onFeedback(message.id).then((wasSubmitted) => {
+      if (wasSubmitted) {
+        setHasSubmittedFeedback(true);
+      }
+    });
   };
 
   const renderTrailingActions = () => {
@@ -133,7 +135,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             onClick={handleCopy}
             className="p-1.5 rounded-md hover:bg-[#D4AF37]/10 text-[#D4AF37]/60 hover:text-[#D4AF37] transition-colors"
             title="نسخ النص"
-            aria-label="Copy text"
+            aria-label="نسخ نص الإجابة"
           >
             {isCopied ? (
               <svg
@@ -165,6 +167,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <path d="M5 15H4a2 2 0 0 1-2 2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
             )}
+          </button>
+        )}
+
+        {shouldShowFeedbackButton && (
+          <button
+            type="button"
+            onClick={handleFeedbackClick}
+            className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              hasSubmittedFeedback
+                ? 'border-[#D4AF37]/20 bg-[#D4AF37]/5 text-[#D4AF37]/70 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37]'
+                : 'border-[#D4AF37]/20 bg-transparent text-[#D4AF37]/60 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37]'
+            }`}
+            title={feedbackButtonLabel}
+            aria-label={feedbackButtonLabel}
+          >
+            {feedbackButtonLabel}
           </button>
         )}
 
@@ -452,7 +470,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.attachment.mimeType.startsWith('image/') ? (
                 <img
                   src={message.attachment.data}
-                  alt="uploaded"
+                  alt="المرفق المرفوع"
                   className="max-w-full h-auto max-h-[300px] object-contain"
                 />
               ) : (

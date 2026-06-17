@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={isFocusMode ? onToggleFocus : onToggleSidebar}
             className={`${isFocusMode ? 'flex' : 'flex md:hidden'} text-[#E6E7EB] hover:text-[#D4AF37] transition-all p-2 rounded-xl hover:bg-[#D4AF37]/10 border border-transparent hover:border-[#D4AF37]/20`}
-            aria-label="Toggle Menu"
+            aria-label={isFocusMode ? 'إظهار القائمة الجانبية' : 'فتح القائمة الجانبية'}
             title="إظهار القائمة الجانبية"
           >
             <svg
@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative">
               <img
                 src="/logo.png"
-                alt="Salaf AI Logo"
+                alt="شعار Salaf AI"
                 width="40"
                 height="40"
                 className="relative h-10 w-10 object-contain"

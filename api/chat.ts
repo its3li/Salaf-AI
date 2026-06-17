@@ -3,7 +3,49 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const ALLOWED_ORIGINS = [
     'https://salaf-ai.vercel.app',
     'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
 ];
+
+const UPSTREAM_TIMEOUT_MS = 55000;
+
+type ApiErrorCode =
+    | 'METHOD_NOT_ALLOWED'
+    | 'VALIDATION_ERROR'
+    | 'CONFIGURATION_ERROR'
+    | 'UPSTREAM_ERROR'
+    | 'UPSTREAM_TIMEOUT'
+    | 'STREAM_ERROR'
+    | 'INTERNAL_ERROR';
+
+interface ChatMessagePayload {
+    role: 'user' | 'assistant';
+    content: string | unknown[];
+}
+
+const createRequestId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+};
+
+const sendJsonError = (
+    res: VercelResponse,
+    status: number,
+    code: ApiErrorCode,
+    message: string,
+    requestId: string
+) => res.status(status).json({ error: { code, message, requestId } });
+
+const isValidMessage = (message: unknown): message is ChatMessagePayload => {
+    if (!message || typeof message !== 'object') return false;
+
+    const candidate = message as Partial<ChatMessagePayload>;
+    if (candidate.role !== 'user' && candidate.role !== 'assistant') return false;
+
+    return typeof candidate.content === 'string' || Array.isArray(candidate.content);
+};
 
 const SYSTEM_INSTRUCTION = `
 **IDENTITY AND PERSONA:**
@@ -79,22 +121,47 @@ function setCorsHeaders(req: VercelRequest, res: VercelResponse): boolean {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!setCorsHeaders(req, res)) return;
 
+    const requestId = createRequestId();
+    const startedAt = Date.now();
+    const logBase = {
+        requestId,
+        method: req.method,
+        origin: req.headers.origin || 'unknown',
+    };
+
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        console.warn('[api/chat] rejected method', logBase);
+        return sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed', requestId);
     }
 
     try {
         const { messages } = req.body;
 
-        if (!Array.isArray(messages) || messages.length === 0) {
-            return res.status(400).json({ error: 'Invalid request: messages array is required' });
+        if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isValidMessage)) {
+            console.warn('[api/chat] invalid payload', {
+                ...logBase,
+                messageCount: Array.isArray(messages) ? messages.length : null,
+            });
+            return sendJsonError(
+                res,
+                400,
+                'VALIDATION_ERROR',
+                'Invalid request: messages array with valid role and content is required',
+                requestId
+            );
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            console.error('GEMINI_API_KEY is not set');
-            return res.status(500).json({ error: 'Server configuration error' });
+            console.error('[api/chat] GEMINI_API_KEY is not set', logBase);
+            return sendJsonError(
+                res,
+                500,
+                'CONFIGURATION_ERROR',
+                'Server configuration error',
+                requestId
+            );
         }
 
         const finalMessages = [
@@ -102,29 +169,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...messages
         ];
 
-        const response = await fetch('https://api.voidai.app/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gemini-3.5-flash',
-                messages: finalMessages,
-                temperature: 0.7,
-                stream: true,
-                max_tokens: 16500
-            })
-        });
+        const upstreamController = new AbortController();
+        const upstreamTimeout = setTimeout(() => upstreamController.abort(), UPSTREAM_TIMEOUT_MS);
+        let response: Response;
+
+        try {
+            response = await fetch('https://api.voidai.app/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gemini-3.5-flash',
+                    messages: finalMessages,
+                    temperature: 0.7,
+                    stream: true,
+                    max_tokens: 16500
+                }),
+                signal: upstreamController.signal
+            });
+        } finally {
+            clearTimeout(upstreamTimeout);
+        }
 
         if (!response.ok) {
-            console.error(`Upstream API error: ${response.status}`);
-            return res.status(502).json({ error: 'Upstream service error' });
+            const upstreamText = await response.text().catch(() => '');
+            console.error('[api/chat] upstream error', {
+                ...logBase,
+                upstreamStatus: response.status,
+                elapsedMs: Date.now() - startedAt,
+                upstreamText: upstreamText.slice(0, 300),
+            });
+            return sendJsonError(res, 502, 'UPSTREAM_ERROR', 'Upstream service error', requestId);
         }
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Request-Id', requestId);
 
         if (!response.body) {
             throw new Error('No response body from upstream stream');
@@ -141,10 +224,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         res.end();
+        console.info('[api/chat] completed', {
+            ...logBase,
+            elapsedMs: Date.now() - startedAt,
+        });
         return;
 
-    } catch (error: any) {
-        console.error('API Error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+    } catch (error: unknown) {
+        const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+        console.error('[api/chat] failed', {
+            ...logBase,
+            elapsedMs: Date.now() - startedAt,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return sendJsonError(
+            res,
+            isTimeout ? 504 : 500,
+            isTimeout ? 'UPSTREAM_TIMEOUT' : 'INTERNAL_ERROR',
+            isTimeout ? 'Upstream service timed out' : 'Internal server error',
+            requestId
+        );
     }
 }

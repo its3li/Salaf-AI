@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Message, ChatSession, Attachment } from '../types';
-import { sendMessageToGemini } from '../services/geminiService';
+import { ChatServiceError, sendMessageToGemini } from '../services/geminiService';
+import { submitMessageFeedback } from '../services/feedbackStorage';
 import { saveChatsToLocalStorage, loadChatsFromLocalStorage } from '../services/chatStorage';
 import { DialogOptions } from './useAppDialog';
 
@@ -15,19 +16,129 @@ const generateId = (): string => {
   });
 };
 
+const getInitialChatState = () => {
+  const loadedChats = loadChatsFromLocalStorage();
+  return {
+    chats: loadedChats,
+    activeChatId: loadedChats[0]?.id ?? null,
+  };
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isValidAttachment = (value: unknown): value is Attachment => {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.name === 'string' &&
+    typeof value.mimeType === 'string' &&
+    typeof value.data === 'string' &&
+    (value.mimeType.startsWith('image/') || value.mimeType === 'application/pdf') &&
+    value.data.startsWith('data:')
+  );
+};
+
+const isValidImportedMessage = (value: unknown): value is Message => {
+  if (!isRecord(value)) return false;
+  const timestamp = value.timestamp;
+  const hasValidTimestamp =
+    typeof timestamp === 'string' || typeof timestamp === 'number' || timestamp instanceof Date;
+  const hasValidAttachment =
+    value.attachment === undefined || isValidAttachment(value.attachment);
+
+  return (
+    typeof value.id === 'string' &&
+    (value.role === 'user' || value.role === 'model') &&
+    typeof value.text === 'string' &&
+    hasValidTimestamp &&
+    hasValidAttachment &&
+    (value.isError === undefined || typeof value.isError === 'boolean')
+  );
+};
+
+export const normalizeImportedChats = (value: unknown): ChatSession[] | null => {
+  if (!Array.isArray(value) || value.length === 0) return null;
+
+  const normalizedChats: ChatSession[] = [];
+  const seenIds = new Set<string>();
+
+  for (const chat of value) {
+    if (!isRecord(chat) || typeof chat.id !== 'string' || seenIds.has(chat.id)) {
+      return null;
+    }
+
+    if (
+      typeof chat.title !== 'string' ||
+      !Array.isArray(chat.messages) ||
+      (typeof chat.createdAt !== 'number' && typeof chat.createdAt !== 'string')
+    ) {
+      return null;
+    }
+
+    const normalizedMessages = chat.messages.map((message) => {
+      if (!isValidImportedMessage(message)) return null;
+      const timestamp = new Date(message.timestamp);
+      if (Number.isNaN(timestamp.getTime())) return null;
+      return {
+        ...message,
+        timestamp,
+      };
+    });
+
+    if (normalizedMessages.some((message) => message === null)) return null;
+
+    normalizedChats.push({
+      id: chat.id,
+      title: chat.title.trim() || 'محادثة مستوردة',
+      messages: normalizedMessages as Message[],
+      createdAt: Number(chat.createdAt) || Date.now(),
+    });
+    seenIds.add(chat.id);
+  }
+
+  return normalizedChats;
+};
+
+const getChatErrorMessage = (error: unknown) => {
+  if (error instanceof ChatServiceError) {
+    const suffix = error.requestId ? `\n\nرمز التتبع: ${error.requestId}` : '';
+
+    switch (error.code) {
+      case 'VALIDATION_ERROR':
+        return `تعذر إرسال الطلب لأن صيغة الرسالة غير صحيحة. حدّث الصفحة ثم حاول مرة أخرى.${suffix}`;
+      case 'CONFIGURATION_ERROR':
+        return `الخدمة غير مهيأة حالياً. تأكد من إعداد مفتاح API في بيئة الإنتاج.${suffix}`;
+      case 'UPSTREAM_TIMEOUT':
+        return `استغرق الاتصال بالخدمة وقتاً أطول من المعتاد. حاول مرة أخرى بعد قليل.${suffix}`;
+      case 'UPSTREAM_ERROR':
+        return `الخدمة الخارجية لم تستجب بشكل صحيح الآن. حاول مرة أخرى بعد قليل.${suffix}`;
+      case 'EMPTY_RESPONSE':
+        return 'وصل رد فارغ من الخدمة. أعد المحاولة أو غيّر صياغة السؤال.';
+      default:
+        if (error.status === 429) {
+          return `هناك ضغط مؤقت على الخدمة أو تم تجاوز الحد المسموح. حاول لاحقاً.${suffix}`;
+        }
+        return `تعذر الاتصال بالخدمة الآن. حاول مرة أخرى بعد قليل.${suffix}`;
+    }
+  }
+
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
+    return 'استغرق الطلب أكثر من دقيقة. حاول مرة أخرى بسؤال أقصر أو بعد قليل.';
+  }
+
+  if (!navigator.onLine) {
+    return 'يبدو أن الاتصال بالإنترنت منقطع. تحقق من الشبكة ثم حاول مرة أخرى.';
+  }
+
+  return 'عذراً، حدث خطأ غير متوقع أثناء الاتصال بالخدمة. يرجى المحاولة مرة أخرى.';
+};
+
 export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | string | null>) => {
-  const [chats, setChats] = useState<ChatSession[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [initialChatState] = useState(getInitialChatState);
+  const [chats, setChats] = useState<ChatSession[]>(initialChatState.chats);
+  const [activeChatId, setActiveChatId] = useState<string | null>(initialChatState.activeChatId);
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const pendingRequestRef = useRef<{ chatId: string; controller: AbortController } | null>(null);
-
-  useEffect(() => {
-    const loadedChats = loadChatsFromLocalStorage();
-    if (loadedChats.length > 0) {
-      setChats(loadedChats);
-      setActiveChatId(loadedChats[0].id);
-    }
-  }, []);
 
   const activeChat = useMemo(
     () => chats.find(chat => chat.id === activeChatId) ?? null,
@@ -130,7 +241,9 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     setLoadingChatId(targetChatId);
 
     // Auto-timeout after 60 seconds to prevent permanent stuck state
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = window.setTimeout(() => {
+      controller.abort(new DOMException('Request timed out', 'TimeoutError'));
+    }, 60000);
 
     try {
       const responseText = await sendMessageToGemini(currentChatHistory, text, attachment, controller.signal);
@@ -146,12 +259,14 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     } catch (error) {
       const isAbort = (error instanceof DOMException && error.name === 'AbortError') ||
                       (error instanceof Error && error.name === 'AbortError');
-      if (!isAbort) {
+      const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
+
+      if (!isAbort || isTimeout) {
         console.error("Error in chat flow:", error);
         const errorMessage: Message = {
           id: generateId(),
           role: 'model',
-          text: 'عذراً، حدث خطأ أثناء الاتصال بالخدمة. يرجى المحاولة مرة أخرى.',
+          text: getChatErrorMessage(error),
           timestamp: new Date(),
           isError: true
         };
@@ -240,6 +355,49 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
       previousMessage.text,
       previousMessage.attachment
     );
+  };
+
+  const handleSubmitFeedback = async (messageId: string) => {
+    if (!activeChatId || !activeChat) return false;
+
+    const messageIndex = activeChat.messages.findIndex((message) => message.id === messageId);
+    const botMessage = activeChat.messages[messageIndex];
+    const previousUserMessage = activeChat.messages
+      .slice(0, messageIndex)
+      .reverse()
+      .find((message) => message.role === 'user');
+
+    if (!botMessage || botMessage.role !== 'model' || botMessage.isError || !previousUserMessage) {
+      return false;
+    }
+
+    const reason = await showDialog({
+      type: 'feedback',
+      title: 'ما الخطأ في الإجابة؟',
+      message:
+        'اكتب باختصار ما الذي وجدته غير دقيق أو ناقصاً. سيتم إرسال ملاحظتك مع السؤال الأصلي والإجابة لتحسين الجودة.',
+      confirmText: 'إرسال الملاحظة',
+      cancelText: 'إلغاء',
+    });
+
+    if (typeof reason !== 'string' || !reason.trim()) return false;
+
+    await submitMessageFeedback({
+      messageId,
+      chatId: activeChatId,
+      reason: reason.trim(),
+      question: previousUserMessage.text,
+      answer: botMessage.text,
+    });
+
+    showDialog({
+      type: 'alert',
+      title: 'تم استلام الملاحظة',
+      message: 'جزاك الله خيراً، تم حفظ ملاحظتك وإرسالها لتحسين جودة الإجابات.',
+      confirmText: 'حسناً',
+    });
+
+    return true;
   };
 
   const handleStopGeneration = () => {
@@ -367,16 +525,24 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const importedChats = JSON.parse(event.target?.result as string);
-        if (Array.isArray(importedChats) && importedChats.length > 0 && importedChats[0].id) {
-          const updatedChats = [...importedChats, ...chats];
+        const importedChats = normalizeImportedChats(JSON.parse(event.target?.result as string));
+        if (importedChats) {
+          const existingIds = new Set(chats.map((chat) => chat.id));
+          const uniqueImportedChats = importedChats.filter((chat) => !existingIds.has(chat.id));
+
+          if (uniqueImportedChats.length === 0) {
+            showDialog({ type: 'alert', title: 'تنبيه', message: 'كل المحادثات الموجودة في الملف مستوردة من قبل.', confirmText: 'حسناً' });
+            return;
+          }
+
+          const updatedChats = [...uniqueImportedChats, ...chats];
           setChats(updatedChats);
           saveChatsToLocalStorage(updatedChats);
-          setActiveChatId(importedChats[0].id);
+          setActiveChatId(uniqueImportedChats[0].id);
         } else {
            showDialog({ type: 'alert', title: 'خطأ', message: 'ملف النسخة الاحتياطية غير صالح ولم يتم استيراده.', confirmText: 'حسناً' });
         }
-      } catch (err) {
+      } catch {
         showDialog({ type: 'alert', title: 'خطأ', message: 'فشل استيراد المحادثات، تأكد من صحة الملف.', confirmText: 'حسناً' });
       }
     };
@@ -393,6 +559,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     createNewChat,
     handleSendMessage,
     handleRetryMessage,
+    handleSubmitFeedback,
     handleStopGeneration,
     handleSelectChat,
     handleDeleteChat,
