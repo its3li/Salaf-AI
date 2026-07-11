@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const UPSTREAM_TIMEOUT_MS = 55000;
+const CHAT_COMPLETIONS_ENDPOINT = 'https://subaxis.dev/v1/chat/completions';
 
 type ApiErrorCode =
     | 'METHOD_NOT_ALLOWED'
@@ -174,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let response: Response;
 
         try {
-            response = await fetch('https://api.voidai.app/v1/chat/completions', {
+            response = await fetch(CHAT_COMPLETIONS_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

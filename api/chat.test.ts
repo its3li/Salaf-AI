@@ -118,6 +118,10 @@ describe('/api/chat handler', () => {
       res as VercelResponse
     );
 
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://subaxis.dev/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' })
+    );
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('text/event-stream; charset=utf-8');
     expect(res.headers['x-request-id']).toBeTruthy();
