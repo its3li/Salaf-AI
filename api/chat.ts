@@ -182,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'gemini-3.1-pro-preview-customtools',
+                    model: 'gemini-3-1-pro',
                     messages: finalMessages,
                     temperature: 0.7,
                     stream: true,
