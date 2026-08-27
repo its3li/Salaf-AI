@@ -8,7 +8,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const UPSTREAM_TIMEOUT_MS = 55000;
-const CHAT_COMPLETIONS_ENDPOINT = 'https://subaxis.dev/v1/chat/completions';
+const CHAT_COMPLETIONS_ENDPOINT = 'https://gpt.crax.lol/v1/chat/completions';
 
 type ApiErrorCode =
     | 'METHOD_NOT_ALLOWED'
