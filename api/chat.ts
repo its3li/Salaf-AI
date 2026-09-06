@@ -8,7 +8,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const UPSTREAM_TIMEOUT_MS = 55000;
-const CHAT_COMPLETIONS_ENDPOINT = 'https://gpt.crax.lol/v1/chat/completions';
+const CHAT_COMPLETIONS_ENDPOINT = 'https://api.apinex.bond/v1';
 
 type ApiErrorCode =
     | 'METHOD_NOT_ALLOWED'
@@ -182,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'gemini-3-1-pro',
+                    model: 'free/gemini-3.1-pro',
                     messages: finalMessages,
                     temperature: 0.7,
                     stream: true,
