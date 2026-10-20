@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { useI18n } from '../i18n/context';
 import { localizeDigits } from '../services/format';
 
@@ -8,6 +9,8 @@ interface DorarEntry {
   source?: string;
   number?: string;
   grade?: string;
+  /** The narration's own page on Dorar, when the server could find it. */
+  link?: string;
 }
 
 type Status = 'idle' | 'loading' | 'empty' | 'error';
@@ -19,8 +22,8 @@ const dorarSearchUrl = (query: string) => `https://dorar.net/hadith/search?q=${e
 const EXAMPLE = {
   query: 'اجعلوا آخر صلاتكم بالليل وترا',
   results: [
-    { text: 'اجعَلوا آخِرَ صَلاتِكُم باللَّيلِ وِترًا', muhaddith: 'البخاري', source: 'صحيح البخاري', number: '998', grade: 'صحيح' },
-    { text: 'اجعَلوا آخِرَ صَلاتِكُم باللَّيلِ وِترًا', muhaddith: 'مسلم', source: 'صحيح مسلم', number: '751', grade: 'صحيح' },
+    { text: 'اجعَلوا آخِرَ صَلاتِكُم باللَّيلِ وِترًا', muhaddith: 'البخاري', source: 'صحيح البخاري', number: '998', grade: 'صحيح', link: 'https://dorar.net/h/eUqTOTvr' },
+    { text: 'اجعَلوا آخِرَ صَلاتِكُم باللَّيلِ وِترًا', muhaddith: 'مسلم', source: 'صحيح مسلم', number: '751', grade: 'صحيح', link: 'https://dorar.net/h/fevZCKUN' },
   ] as DorarEntry[],
 };
 
@@ -112,10 +115,26 @@ export const HadithChecker: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[0.85rem] text-muted">
+                  <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[0.85rem] text-muted">
                     {entry.muhaddith && <>{t.hadithChecker.muhaddith} {entry.muhaddith} · </>}
-                    {entry.source}
-                    {entry.number && <> ({localizeDigits(entry.number, language)})</>}
+                    {entry.link ? (
+                      <a
+                        href={entry.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={t.hadithChecker.openNarration}
+                        className="inline-flex items-center gap-1 text-gold-text underline decoration-gold/40 underline-offset-4 hover:decoration-gold"
+                      >
+                        {entry.source}
+                        {entry.number && <> ({localizeDigits(entry.number, language)})</>}
+                        <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <>
+                        {entry.source}
+                        {entry.number && <> ({localizeDigits(entry.number, language)})</>}
+                      </>
+                    )}
                   </p>
                 </li>
               );

@@ -187,9 +187,13 @@ const formatHadithResults = (query: string, results: Array<Record<string, string
             `${index + 1}. ${entry.text}`,
             `   الراوي: ${entry.narrator ?? '-'} | المحدث: ${entry.muhaddith ?? '-'} | المصدر: ${entry.source ?? '-'} | الصفحة أو الرقم: ${entry.number ?? '-'}`,
             `   خلاصة حكم المحدث: ${entry.grade ?? '-'}`,
+            ...(entry.link ? [`   Link to this narration: ${entry.link}`] : []),
         ].join('\n')
     );
-    return `Dorar.net results for "${query}" (search page: ${link}):\n\n${lines.join('\n\n')}`;
+    return (
+        `Dorar.net results for "${query}". When you cite one of them, link that narration's own page ` +
+        `(its "Link to this narration"), not a search page:\n\n${lines.join('\n\n')}`
+    );
 };
 
 /** Raw Dorar.net lookup, shared by the model's tool and the public /api/hadith endpoint. */
@@ -202,11 +206,30 @@ const parseDorarPayload = (text: string) => {
     return parseDorarResults(payload.ahadith?.result ?? '');
 };
 
-export const fetchDorarResults = async (
-    query: string,
-    signal: AbortSignal,
-    config: ResearchConfig = getResearchConfig()
-) => {
+const DORAR_PERMALINK = /https:\/\/dorar\.net\/h\/([A-Za-z0-9]+)/;
+
+const permalinkKey = (source: string, number: string) =>
+    `${source.replace(/\s+/g, ' ').trim()}|${number.replace(/\s+/g, '').trim()}`;
+
+/**
+ * Each narration's permanent page (https://dorar.net/h/<id>) from Dorar's site search, read as
+ * markdown, keyed by book and number. The API has no such links, and the page's own text loses the
+ * spaces around highlighted words, so only the links are taken from it.
+ */
+export const parseDorarPermalinks = (markdown: string) => {
+    const links = new Map<string, string>();
+    for (const block of markdown.split(/\n#{2,6}\s*\d+\s*-\s*/).slice(1)) {
+        const source = /المصدر\s*:\s*\[?([^\]*|\n]+)/.exec(block)?.[1];
+        const number = /الصفحة أو الرقم\s*:\s*([^*|\n]+)/.exec(block)?.[1];
+        const id = DORAR_PERMALINK.exec(block)?.[1];
+        if (!source || !number || !id) continue;
+        const key = permalinkKey(source, number);
+        if (!links.has(key)) links.set(key, `https://dorar.net/h/${id}`);
+    }
+    return links;
+};
+
+const fetchDorarApi = async (query: string, signal: AbortSignal, config: ResearchConfig) => {
     const url = `https://dorar.net/dorar_api.json?skey=${encodeURIComponent(query)}`;
     try {
         const response = await fetchWithTimeout(
@@ -226,6 +249,27 @@ export const fetchDorarResults = async (
         });
         return parseDorarPayload(await readWithPaxsenix(url, config.paxsenixKey, signal));
     }
+};
+
+/** Narrations matching a fragment, each with its own Dorar page when the site search could be read. */
+export const fetchDorarResults = async (
+    query: string,
+    signal: AbortSignal,
+    config: ResearchConfig = getResearchConfig()
+) => {
+    // Read alongside the API so the links cost no extra waiting; without them results still stand.
+    const pageUrl = `https://dorar.net/hadith/search?q=${encodeURIComponent(query)}`;
+    const linksPromise = config.paxsenixKey
+        ? readWithPaxsenix(pageUrl, config.paxsenixKey, signal)
+              .then(parseDorarPermalinks)
+              .catch(() => new Map<string, string>())
+        : Promise.resolve(new Map<string, string>());
+
+    const [results, links] = await Promise.all([fetchDorarApi(query, signal, config), linksPromise]);
+    return results.map((entry) => {
+        const link = entry.source && entry.number ? links.get(permalinkKey(entry.source, entry.number)) : undefined;
+        return link ? { ...entry, link } : entry;
+    });
 };
 
 const searchHadith = async (query: string, config: ResearchConfig, signal: AbortSignal) => {

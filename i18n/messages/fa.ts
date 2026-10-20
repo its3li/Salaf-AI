@@ -2,6 +2,11 @@ import type { Messages } from './ar';
 
 export const fa: Messages = {
   appName: 'باحث السلف',
+  /** The browser tab title. */
+  meta: {
+    title: 'باحث السلف | Salaf AI — بپرسید و پاسخ را با دلیلش بگیرید',
+    aboutTitle: 'درباره باحث السلف | Salaf AI',
+  },
   languageMenu: 'تغییر زبان',
 
   header: {
@@ -239,6 +244,7 @@ export const fa: Messages = {
     empty: 'نتیجه‌ای برای این متن نیست. بخش دیگری از حدیث را امتحان کنید.',
     muhaddith: 'محدث:',
     allResults: 'همه نتایج در الدرر السنیه',
+    openNarration: 'این حدیث را در الدرر السنیه باز کنید',
   },
 
   about: {

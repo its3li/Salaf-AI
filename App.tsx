@@ -77,6 +77,11 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // The tab title follows the page and the interface language.
+  useEffect(() => {
+    document.title = view === 'about' ? t.meta.aboutTitle : t.meta.title;
+  }, [view, t]);
+
   useEffect(() => {
     const handlePopState = () => setView(viewFromPath());
     window.addEventListener('popstate', handlePopState);

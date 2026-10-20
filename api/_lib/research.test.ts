@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import handler, { clearChatRateLimitForTests } from '../chat';
-import { parseDorarResults, runResearchTool } from './research';
+import { parseDorarPermalinks, parseDorarResults, runResearchTool } from './research';
 
 const DORAR_HTML = `<div class="hadith" style="text-align:justify;">1 -  <span class="search-keys">إنما</span> الأعمال بالنيات  .</div>
 <div class="hadith-info">
@@ -94,6 +94,39 @@ afterEach(() => {
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.PAXSENIX_API_KEY;
   delete process.env.AQUADEVS_API_KEY;
+});
+
+// Dorar's site search as the page reader returns it: links only, the text loses its spaces.
+const DORAR_SEARCH_MARKDOWN = `##### نتائج البحث
+
+##### 1 - اجعَلوا آخِرَصَلاتِكُم باللَّيلِوِترًا.
+
+**خلاصة حكم المحدث : [صحيح]**
+**الراوي : عبدالله بن عمر****| المحدث : [البخاري](https://dorar.net/hadith/search?q=x)****| المصدر : [صحيح البخاري](https://dorar.net/hadith/search?q=x)**
+**الصفحة أو الرقم : 998****التخريج : أخرجه مسلم (751)**
+**|[أحاديث مشابهة](https://dorar.net/h/eUqTOTvr?sims=1)****|[أصول الحديث](https://dorar.net/h/eUqTOTvr?osoul=1)**
+
+##### 2 - اجعَلوا آخِرَ صَلاتِكُم باللَّيلِ وِترًا.
+
+**خلاصة حكم المحدث : [صحيح]**
+**الراوي : عبدالله بن عمر****| المحدث : [مسلم](https://dorar.net/hadith/search?q=x)****| المصدر : [صحيح مسلم](https://dorar.net/hadith/search?q=x)**
+**الصفحة أو الرقم : 751**
+[](https://dorar.net/h/fevZCKUN)
+
+##### 3 - الوتر ركعة.
+
+**الصفحة أو الرقم : 2/ 266**
+**| المصدر : صحيح ابن خزيمة**
+[](https://dorar.net/h/wTxdyyAu)`;
+
+describe('parseDorarPermalinks', () => {
+  it('maps each narration on the search page to its own Dorar page by book and number', () => {
+    const links = parseDorarPermalinks(DORAR_SEARCH_MARKDOWN);
+    expect(links.get('صحيح البخاري|998')).toBe('https://dorar.net/h/eUqTOTvr');
+    expect(links.get('صحيح مسلم|751')).toBe('https://dorar.net/h/fevZCKUN');
+    expect(links.get('صحيح ابن خزيمة|2/266')).toBe('https://dorar.net/h/wTxdyyAu');
+    expect(links.size).toBe(3);
+  });
 });
 
 describe('parseDorarResults', () => {

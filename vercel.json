@@ -2,7 +2,10 @@
   "functions": {
     "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true }
   },
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

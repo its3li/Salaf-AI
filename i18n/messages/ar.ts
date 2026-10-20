@@ -6,6 +6,11 @@ const questionCount = (count: number, n: string) => {
 
 export const ar = {
   appName: 'باحث السلف',
+  /** The browser tab title. */
+  meta: {
+    title: 'باحث السلف | Salaf AI — اسأل وخذ الجواب بدليله',
+    aboutTitle: 'عن باحث السلف | Salaf AI',
+  },
   languageMenu: 'تغيير اللغة',
 
   header: {
@@ -244,6 +249,7 @@ export const ar = {
     empty: 'لا نتائج لهذا النص. جرّب جزءًا آخر من الحديث.',
     muhaddith: 'المحدّث:',
     allResults: 'كل النتائج في الدرر السنية',
+    openNarration: 'افتح الحديث في الدرر السنية',
   },
 
   about: {

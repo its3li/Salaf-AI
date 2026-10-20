@@ -69,10 +69,44 @@ const localApi = (): Plugin => ({
   },
 });
 
-export default defineConfig(({ mode }) => {
-  // Server-side keys (no VITE_ prefix) stay out of the browser bundle; only the local API reads them.
-  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ''))) {
-    process.env[key] ??= value;
+const ABOUT_TITLE = 'عن باحث السلف — كيف يجيب ويتحقق من الأحاديث | Salaf AI';
+const ABOUT_DESCRIPTION =
+  'تعرّف على باحث السلف: مساعد بحثي مجاني يجيب بالدليل من القرآن والسنة الصحيحة بفهم السلف، ويتحقق من الأحاديث في الدرر السنية. جرّب التحقق من حديث بنفسك، واقرأ الأسئلة الشائعة.';
+const ABOUT_URL = 'https://salaf-ai.vercel.app/about';
+
+/**
+ * Writes about.html: the built index.html with the about page's own title, description and URLs,
+ * so link previews (which run no script) and search engines see the right page. vercel.json serves
+ * it at /about; the app inside is the same.
+ */
+const aboutPageHtml = (): Plugin => ({
+  name: 'salaf-about-html',
+  apply: 'build',
+  enforce: 'post',
+  generateBundle(_, bundle) {
+    const index = bundle['index.html'];
+    if (!index || index.type !== 'asset') return;
+    const setContent = (html: string, selector: RegExp, value: string) => html.replace(selector, `$1${value}`);
+    let html = String(index.source).replace(/<title>[^<]*<\/title>/, `<title>${ABOUT_TITLE}</title>`);
+    html = setContent(html, /(<link rel="canonical" href=")[^"]*/, ABOUT_URL);
+    html = setContent(html, /(<meta property="og:url" content=")[^"]*/, ABOUT_URL);
+    for (const name of ['name="description"', 'property="og:description"', 'name="twitter:description"']) {
+      html = setContent(html, new RegExp(`(<meta ${name} content=")[^"]*`), ABOUT_DESCRIPTION);
+    }
+    for (const name of ['property="og:title"', 'name="twitter:title"']) {
+      html = setContent(html, new RegExp(`(<meta ${name} content=")[^"]*`), ABOUT_TITLE);
+    }
+    this.emitFile({ type: 'asset', fileName: 'about.html', source: html });
+  },
+});
+
+export default defineConfig(({ command, mode }) => {
+  // Only the dev server's local API gets the keys from .env.local: never tests (which must not reach
+  // real services) and never the build. Server-side keys (no VITE_ prefix) never reach the browser.
+  if (command === 'serve' && mode !== 'test') {
+    for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ''))) {
+      process.env[key] ??= value;
+    }
   }
 
   return {
@@ -85,6 +119,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       localApi(),
+      aboutPageHtml(),
       react(),
       VitePWA({
         registerType: 'autoUpdate',
