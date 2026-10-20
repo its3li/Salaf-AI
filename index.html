@@ -2,15 +2,39 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <!-- Title, description and link-preview tags come first, before any script or stylesheet:
+         WhatsApp's preview reader is simpler than a browser and gives up early. The image file name
+         changes when the image does, because WhatsApp and Facebook keep a link's preview for long. -->
+    <title>باحث السلف | Salaf AI — اسأل وخذ الجواب بدليله</title>
+    <meta name="description" content="مساعد بحثي مجاني بالذكاء الاصطناعي: اسأل في العقيدة والفقه والحديث، وخذ الجواب بدليله من القرآن والسنة بفهم السلف، بالعربية والأردية والفارسية.">
+    <meta property="og:title" content="باحث السلف — اسأل وخذ الجواب بدليله">
+    <meta property="og:description" content="إجابات شرعية بأدلتها من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث. مجاني.">
+    <meta property="og:image" content="https://salaf-ai.vercel.app/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://salaf-ai.vercel.app/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="شعار باحث السلف">
+    <meta property="og:url" content="https://salaf-ai.vercel.app/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="باحث السلف | Salaf AI">
+    <meta property="og:locale" content="ar_AR">
+    <meta property="og:locale:alternate" content="ur_PK">
+    <meta property="og:locale:alternate" content="fa_IR">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="باحث السلف — اسأل وخذ الجواب بدليله">
+    <meta name="twitter:description" content="إجابات شرعية بأدلتها من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث. مجاني.">
+    <meta name="twitter:image" content="https://salaf-ai.vercel.app/og-image.jpg">
+    <meta name="twitter:image:alt" content="شعار باحث السلف">
+    <link rel="image_src" href="https://salaf-ai.vercel.app/og-image.jpg">
+    <link rel="canonical" href="https://salaf-ai.vercel.app/">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="google-site-verification" content="ym7wMz--qx9JBmkk7d-htGrd30d8y1N0SL_Whh7IPZo" />
-    <title>باحث السلف | Salaf AI — اسأل في العقيدة والفقه والحديث وخذ الجواب بدليله</title>
-    <meta name="description" content="باحث السلف مساعد بحثي مجاني بالذكاء الاصطناعي: اسأل في العقيدة والفقه والحديث والتفسير، واحصل على جواب بدليله من القرآن والسنة الصحيحة بفهم السلف الصالح، مع التحقق من الأحاديث في الدرر السنية. بالعربية والأردية والفارسية.">
     <meta name="keywords" content="باحث السلف, Salaf AI, ذكاء اصطناعي إسلامي, منهج السلف, عقيدة, فقه, حديث, تفسير, التحقق من الحديث, الدرر السنية, أسئلة شرعية, Islamic AI">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="application-name" content="Salaf AI">
-    <link rel="canonical" href="https://salaf-ai.vercel.app/">
-    
+
     <!-- Favicon and PWA Setup (manifest link is injected by vite-plugin-pwa) -->
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -34,29 +58,6 @@
         }
       })();
     </script>
-
-    <!-- Link previews (WhatsApp, Telegram, X, Facebook). The image file name changes when the image
-         does, because WhatsApp and Facebook keep a link's preview for a long time. -->
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="باحث السلف | Salaf AI">
-    <meta property="og:title" content="باحث السلف — اسأل وخذ الجواب بدليله">
-    <meta property="og:description" content="مساعد بحثي مجاني بالذكاء الاصطناعي: إجابات في العقيدة والفقه والحديث والتفسير بأدلتها من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث في الدرر السنية.">
-    <meta property="og:url" content="https://salaf-ai.vercel.app/">
-    <meta property="og:image" content="https://salaf-ai.vercel.app/og-image.jpg">
-    <meta property="og:image:secure_url" content="https://salaf-ai.vercel.app/og-image.jpg">
-    <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="شعار باحث السلف: كتاب مفتوح ذهبي، مع عبارة: تساعدك على الوصول السريع إلى الجواب الشرعي">
-    <meta property="og:locale" content="ar_AR">
-    <meta property="og:locale:alternate" content="ur_PK">
-    <meta property="og:locale:alternate" content="fa_IR">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="باحث السلف — اسأل وخذ الجواب بدليله">
-    <meta name="twitter:description" content="إجابات شرعية بأدلتها من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث. مجاني.">
-    <meta name="twitter:image" content="https://salaf-ai.vercel.app/og-image.jpg">
-    <meta name="twitter:image:alt" content="شعار باحث السلف">
-    <link rel="image_src" href="https://salaf-ai.vercel.app/og-image.jpg">
 
     <!-- Structured data for search engines -->
     <script type="application/ld+json">
