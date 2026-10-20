@@ -1,6 +1,7 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import handler, { createDiscordFeedbackPayload } from './feedback';
+import handler, { clearFeedbackRateLimitForTests, createDiscordFeedbackPayload } from './feedback';
 
 interface MockResponse extends Partial<VercelResponse> {
   statusCode: number;
@@ -45,6 +46,7 @@ const validFeedback = {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  clearFeedbackRateLimitForTests();
   delete process.env.FEEDBACK_WEBHOOK_URL;
 });
 
@@ -60,6 +62,22 @@ describe('/api/feedback handler', () => {
         code: 'VALIDATION_ERROR',
       },
     });
+  });
+
+  it('limits how much feedback one IP can send', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    const statuses: number[] = [];
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const res = createMockResponse();
+      await handler(
+        createMockRequest({ headers: { 'x-forwarded-for': '203.0.113.50' }, body: validFeedback }),
+        res as VercelResponse
+      );
+      statuses.push(res.statusCode);
+    }
+
+    expect(statuses).toEqual([202, 202, 202, 202, 202, 429]);
   });
 
   it('accepts valid feedback when Discord is not configured', async () => {

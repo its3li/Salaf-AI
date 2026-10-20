@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from 'react';
+import { BookOpen, Check, Copy, RotateCw, ThumbsDown, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '../types';
 import { hasFeedbackForMessage } from '../services/feedbackStorage';
 import { parseMessageSources } from '../services/messageParsing';
+import { formatTime, localizeDigits } from '../services/format';
+import { useI18n } from '../i18n/context';
+import type { Language } from '../i18n/languages';
 
 interface MessageBubbleProps {
   message: Message;
   canRetry?: boolean;
+  /** Plays the arrival animation; set for the answer that just arrived. */
+  isNew?: boolean;
   onRetry?: (messageId: string) => void;
   onFeedback?: (messageId: string) => Promise<boolean>;
 }
@@ -16,230 +22,109 @@ interface MarkdownProps {
   children?: React.ReactNode;
   className?: string;
   href?: string;
-  inline?: boolean;
 }
+
+const URL_PATTERN = /(https?:\/\/[^\s)،]+)/g;
+// A verdict ends its phrase, which keeps book titles such as «صحيح البخاري» from being read as one.
+const VERDICT_PATTERN =
+  /(باطل لا أصل له|لا يصح|لا أصل له|موضوع|باطل|منكر|ضعيف جدًا|ضعيف جدا|ضعيف|حسن صحيح|صحيح لغيره|حسن لغيره|صحيح|حسن)(?=\s*(?:$|[).،,:؛۔\]\-–]))/;
+const UNSOUND_VERDICT = /لا يصح|لا أصل|موضوع|باطل|منكر|ضعيف/;
+// Urdu and Persian answers spell the same grades with their own yeh and kaf (صحیح, منکر).
+const toArabicLetters = (text: string) => text.replace(/ی/g, 'ي').replace(/ک/g, 'ك');
+
+/** The grade at the end of a hadith's source line, as written there. */
+const findVerdict = (sourceText: string) => {
+  const match = VERDICT_PATTERN.exec(toArabicLetters(sourceText));
+  return match ? sourceText.slice(match.index, match.index + match[1].length) : undefined;
+};
+
+const LIST_NUMBERING: Record<Language, string> = { ar: 'arabic-indic', ur: 'urdu', fa: 'persian' };
+
+const getHostname = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+const VerdictPill: React.FC<{ verdict: string }> = ({ verdict }) => {
+  const unsound = UNSOUND_VERDICT.test(toArabicLetters(verdict));
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.8rem] font-semibold ${
+        unsound ? 'bg-danger-soft text-danger' : 'bg-gold-soft text-gold-text'
+      }`}
+    >
+      {unsound ? (
+        <X size={12} strokeWidth={2.6} aria-hidden="true" />
+      ) : (
+        <Check size={12} strokeWidth={2.8} aria-hidden="true" />
+      )}
+      {verdict}
+    </span>
+  );
+};
+
+const IconButton: React.FC<
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; children: React.ReactNode }
+> = ({ label, children, ...props }) => (
+  <button
+    type="button"
+    title={label}
+    aria-label={label}
+    className="flex h-8 w-8 items-center justify-center rounded-lg text-faint transition-all hover:bg-surface-2 hover:text-text active:scale-90"
+    {...props}
+  >
+    {children}
+  </button>
+);
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   canRetry = false,
+  isNew = false,
   onRetry,
   onFeedback,
 }) => {
+  const { t, language } = useI18n();
+  const localDigits = (text: string) => localizeDigits(text, language);
   const isUser = message.role === 'user';
   const [isCopied, setIsCopied] = useState(false);
-  const [showSources, setShowSources] = useState(false);
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(() =>
     hasFeedbackForMessage(message.id)
   );
 
-  // Helper to convert English numerals to Arabic numerals
-  const toArabicNumerals = (str: string) => {
-    return str.replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
-  };
-
-  // Extract Sources and Clean Text
-  const { displayContent, sourcesList } = useMemo(() => {
-    return parseMessageSources(message.text || '');
-  }, [message.text]);
-
-  const hasSources = sourcesList.length > 0;
-  const sourceCountLabel = toArabicNumerals(sourcesList.length.toString());
-  const sourceButtonLabel = hasSources ? `عرض المصادر (${sourceCountLabel})` : 'عرض المصادر';
-
-  const formatSourceText = (source: string) => toArabicNumerals(source.replace(/^\d+\.\s*/, ''));
-
-  const openSources = () => setShowSources(true);
-
-  const renderSourcesButton = () => {
-    if (!hasSources || isUser || message.isError) return null;
-
-    return (
-      <button
-        type="button"
-        onClick={openSources}
-        className="flex items-center gap-1.5 rounded-md border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-medium text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/20 hover:text-[#E5C048]"
-        title="عرض المصادر"
-        aria-label="عرض المصادر"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
-        <span>{sourceButtonLabel}</span>
-      </button>
-    );
-  };
-
-  const sourcesButton = renderSourcesButton();
-
-  const shouldAlwaysShowActions = Boolean(sourcesButton) || message.isError;
-
-  const actionsClassName = shouldAlwaysShowActions
-    ? 'flex gap-2 opacity-100'
-    : 'flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200';
-
-  const hasTrailingActions =
-    Boolean(sourcesButton) ||
-    (!message.isError && !isUser) ||
-    (message.isError && canRetry && onRetry);
-
-  const trailingMetaClassName = hasTrailingActions
-    ? 'flex items-center justify-between mt-3 gap-3 flex-wrap'
-    : 'flex items-center justify-end mt-2 gap-3';
-
-  const formattedTime = toArabicNumerals(
-    message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const { displayContent, sourcesList } = useMemo(
+    () => parseMessageSources(message.text || ''),
+    [message.text]
   );
 
-  const shouldShowCopyButton = !message.isError && !isUser;
-  const shouldShowFeedbackButton = !message.isError && !isUser;
-  const feedbackButtonLabel = hasSubmittedFeedback ? 'إرسال ملاحظة أخرى' : 'الإجابة غير دقيقة؟';
-
-  const shouldShowRetryButton = Boolean(message.isError && canRetry && onRetry);
-
-  const handleRetryClick = () => {
-    if (onRetry) {
-      onRetry(message.id);
-    }
-  };
-
-  const handleFeedbackClick = () => {
-    if (!onFeedback) return;
-
-    void onFeedback(message.id).then((wasSubmitted) => {
-      if (wasSubmitted) {
-        setHasSubmittedFeedback(true);
-      }
-    });
-  };
-
-  const renderTrailingActions = () => {
-    if (isUser) return null;
-
-    return (
-      <div className={actionsClassName}>
-        {sourcesButton}
-
-        {shouldShowCopyButton && (
-          <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-md hover:bg-[#D4AF37]/10 text-[#D4AF37]/60 hover:text-[#D4AF37] transition-colors"
-            title="نسخ النص"
-            aria-label="نسخ نص الإجابة"
-          >
-            {isCopied ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2 2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            )}
-          </button>
-        )}
-
-        {shouldShowFeedbackButton && (
-          <button
-            type="button"
-            onClick={handleFeedbackClick}
-            className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              hasSubmittedFeedback
-                ? 'border-[#D4AF37]/20 bg-[#D4AF37]/5 text-[#D4AF37]/70 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37]'
-                : 'border-[#D4AF37]/20 bg-transparent text-[#D4AF37]/60 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37]'
-            }`}
-            title={feedbackButtonLabel}
-            aria-label={feedbackButtonLabel}
-          >
-            {feedbackButtonLabel}
-          </button>
-        )}
-
-        {shouldShowRetryButton && (
-          <button
-            onClick={handleRetryClick}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-200 border border-red-500/30 transition-colors text-xs"
-            title="إعادة المحاولة"
-            aria-label="إعادة المحاولة"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M23 4v6h-6"></path>
-              <path d="M1 20v-6h6"></path>
-              <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path>
-              <path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path>
-            </svg>
-            <span>إعادة المحاولة</span>
-          </button>
-        )}
-      </div>
-    );
-  };
-
   const handleCopy = () => {
-    // Clean the text from custom HTML tags injected by the prompt before copying
-    // Use displayContent to ensure we don't copy the hidden source block
+    // Strip the custom tags injected by the prompt and leave out the hidden sources block.
     const cleanText = displayContent
-      .replace(/<p class="quran">/g, '')
-      .replace(/<p class="hadith">/g, '')
+      .replace(/<p class="(quran|hadith)">/g, '')
       .replace(/<span class="source">/g, '')
       .replace(/<\/p>/g, '')
       .replace(/<\/span>/g, '')
       .replace(/<br\s*\/?>/gi, '\n');
 
-    navigator.clipboard.writeText(cleanText).then(() => {
+    void navigator.clipboard.writeText(cleanText).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     });
   };
 
-  // Recursive function to traverse React nodes and convert text
-  const processContent = (node: React.ReactNode): React.ReactNode => {
-    if (isUser) return node; // Don't convert user messages
+  const handleFeedbackClick = () => {
+    if (!onFeedback) return;
+    void onFeedback(message.id).then((wasSubmitted) => {
+      if (wasSubmitted) setHasSubmittedFeedback(true);
+    });
+  };
 
-    if (typeof node === 'string') {
-      return toArabicNumerals(node);
-    }
+  // Recursively write digits in rendered text nodes in the interface language's numerals.
+  const processContent = (node: React.ReactNode): React.ReactNode => {
+    if (typeof node === 'string') return localDigits(node);
     if (Array.isArray(node)) {
       return node.map((n, i) => <React.Fragment key={i}>{processContent(n)}</React.Fragment>);
     }
@@ -250,347 +135,245 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           children: processContent(props.children),
         });
       }
-      return node;
     }
     return node;
   };
 
-  // Pre-process text to convert HTML tags to Markdown code blocks we can intercept
-  const processedText = useMemo(() => {
-    if (isUser) return displayContent;
-
-    return (
+  // Turn the prompt's HTML tags into fenced blocks the `pre` renderer below can style.
+  const processedText = useMemo(
+    () =>
       displayContent
-        // Convert Quran tags to a specific code block language
         .replace(/<p class="quran">([\s\S]*?)<\/p>/g, '\n```quran\n$1\n```\n')
-        // Convert Hadith tags to a specific code block language
-        .replace(/<p class="hadith">([\s\S]*?)<\/p>/g, (_, content) => {
-          return `\n\`\`\`hadith\n${content}\n\`\`\`\n`;
-        })
-    );
-  }, [displayContent, isUser]);
+        .replace(/<p class="hadith">([\s\S]*?)<\/p>/g, (_, content) => `\n\`\`\`hadith\n${content}\n\`\`\`\n`)
+        // A tag left open (an interrupted answer) styles the rest as that block instead of raw HTML.
+        .replace(/<p class="(quran|hadith)">([\s\S]*)$/, '\n```$1\n$2\n```\n'),
+    [displayContent]
+  );
 
-  // Custom styling for markdown elements to match the theme
   const components = {
     p: ({ children }: MarkdownProps) => (
-      <p className="mb-4 last:mb-0 leading-[1.8] whitespace-pre-wrap break-words">
-        {processContent(children)}
-      </p>
+      <p className="mb-4 last:mb-0 whitespace-pre-wrap break-words">{processContent(children)}</p>
     ),
     h1: ({ children }: MarkdownProps) => (
-      <h1
-        className={`text-2xl font-bold mb-4 mt-6 ${isUser ? 'text-[#EAEAEA]' : 'text-[#D4AF37]'}`}
-      >
-        {processContent(children)}
-      </h1>
+      <h3 className="mt-7 mb-3 text-[1.25rem] font-bold first:mt-0">{processContent(children)}</h3>
     ),
     h2: ({ children }: MarkdownProps) => (
-      <h2 className={`text-xl font-bold mb-3 mt-5 ${isUser ? 'text-[#EAEAEA]' : 'text-[#D4AF37]'}`}>
-        {processContent(children)}
-      </h2>
+      <h3 className="mt-7 mb-3 text-[1.2rem] font-bold first:mt-0">{processContent(children)}</h3>
     ),
     h3: ({ children }: MarkdownProps) => (
-      <h3 className={`text-lg font-bold mb-2 mt-4 ${isUser ? 'text-[#EAEAEA]' : 'text-[#D4AF37]'}`}>
-        {processContent(children)}
-      </h3>
+      <h4 className="mt-6 mb-2 text-[1.08rem] font-bold first:mt-0">{processContent(children)}</h4>
     ),
-    strong: ({ children }: MarkdownProps) => (
-      <strong className={`font-bold ${isUser ? 'text-white' : 'text-[#D4AF37]'}`}>
-        {processContent(children)}
-      </strong>
-    ),
-    em: ({ children }: MarkdownProps) => <em className="italic">{processContent(children)}</em>,
+    strong: ({ children }: MarkdownProps) => <strong className="font-semibold">{processContent(children)}</strong>,
+    em: ({ children }: MarkdownProps) => <em className="not-italic font-medium">{processContent(children)}</em>,
     ul: ({ children }: MarkdownProps) => (
-      <ul className="list-disc list-inside mb-4 space-y-2 marker:text-[#D4AF37]">{children}</ul>
+      <ul className="mb-4 list-disc space-y-1.5 ps-6 marker:text-faint">{children}</ul>
     ),
     ol: ({ children }: MarkdownProps) => (
-      <ol className="list-decimal list-inside mb-4 space-y-2 marker:text-[#D4AF37]">{children}</ol>
+      <ol className="mb-4 space-y-1.5 ps-7 marker:text-faint" style={{ listStyleType: LIST_NUMBERING[language] }}>
+        {children}
+      </ol>
     ),
-    li: ({ children }: MarkdownProps) => (
-      <li className="leading-relaxed marker:text-[#D4AF37]">{processContent(children)}</li>
-    ),
+    li: ({ children }: MarkdownProps) => <li className="ps-1">{processContent(children)}</li>,
     blockquote: ({ children }: MarkdownProps) => (
-      <blockquote
-        className={`border-r-[3px] pr-4 py-2 my-4 italic rounded-l-sm ${
-          isUser
-            ? 'border-[#D4AF37]/40 bg-[#D4AF37]/5 text-[#E0E0E0]'
-            : 'border-[#D4AF37]/60 bg-[#D4AF37]/10 text-[#E0E0E0]'
-        }`}
-      >
-        {processContent(children)}
-      </blockquote>
+      <blockquote className="my-4 border-s-2 border-gold/60 ps-4 text-muted">{processContent(children)}</blockquote>
     ),
     a: ({ href, children }: MarkdownProps) => (
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={`underline decoration-1 underline-offset-2 transition-colors ${
-          isUser
-            ? 'text-[#D4AF37] hover:text-[#E5C048]'
-            : 'text-[#D4AF37] hover:text-[#E5C048] font-medium'
-        }`}
+        className="font-medium text-gold-text underline decoration-gold/40 underline-offset-4 hover:decoration-gold"
       >
         {processContent(children)}
       </a>
     ),
-    code: ({ inline, className, children }: MarkdownProps) => {
-      const classMatch = /language-(\w+)/.exec(className || '');
+    hr: () => <hr className="my-6 border-line" />,
+    // react-markdown wraps every fenced block in <pre><code>, so blocks are rendered here and the
+    // `code` renderer below only ever sees inline code.
+    pre: ({ children }: MarkdownProps) => {
+      const codeElement = React.isValidElement<MarkdownProps>(children) ? children : null;
+      const classMatch = /language-(\w+)/.exec(codeElement?.props.className || '');
       const lang = classMatch ? classMatch[1] : '';
+      const content = String(codeElement?.props.children ?? '').replace(/\n$/, '');
 
-      // Custom Renderers for our hijacked blocks
-      if (!inline && lang === 'quran') {
+      if (lang === 'quran') {
+        const verse = content.trim().replace(/^﴿\s*|\s*﴾$/g, '');
         return (
-          <div className="quran whitespace-pre-wrap break-words max-w-full text-[#D4AF37] leading-[2.2] font-medium">
-            {toArabicNumerals(String(children).replace(/\n$/, ''))}
+          <div className="quran whitespace-pre-wrap break-words">
+            <span className="verse-mark">﴿</span> {localDigits(verse)} <span className="verse-mark">﴾</span>
           </div>
         );
       }
 
-      if (!inline && lang === 'hadith') {
-        const content = String(children).replace(/\n$/, '');
-        // Check for source span pattern
-        const sourceMatch = content.match(/<span class="source">(.*?)<\/span>/);
-        let mainText = content;
-        let sourceText = '';
-
-        if (sourceMatch) {
-          mainText = content.replace(sourceMatch[0], '').replace(/<br\s*\/?>/gi, '').trim();
-          sourceText = sourceMatch[1];
-        }
-
+      if (lang === 'hadith') {
+        const sourceMatch = content.match(/<span class="source">([\s\S]*?)<\/span>/);
+        const sourceText = sourceMatch ? localDigits(sourceMatch[1].trim()) : '';
+        const verdict = findVerdict(sourceText);
+        const mainText = (sourceMatch ? content.replace(sourceMatch[0], '') : content)
+          .replace(/<br\s*\/?>/gi, '')
+          .trim();
         return (
-          <div className="hadith whitespace-pre-wrap break-words max-w-full">
-            <div className="flex gap-3">
-              <span className="text-2xl leading-none mt-0.5 opacity-30 select-none" style={{ color: '#C0AA82' }}>❝</span>
-              <p className="flex-1" style={{ color: '#E8E0D0' }}>{toArabicNumerals(mainText)}</p>
-            </div>
-            {sourceText && (
-              <span className="source">
-                {toArabicNumerals(sourceText)}
+          <figure className="hadith my-4 rounded-2xl border border-line bg-surface p-4 md:p-5">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 text-[0.85rem] font-medium text-faint">
+                <BookOpen size={15} strokeWidth={1.8} aria-hidden="true" />
+                {t.message.hadith}
               </span>
-            )}
-          </div>
-        );
-      }
-
-      if (inline) {
-        return (
-          <code
-            className={`px-1.5 py-0.5 rounded font-mono text-xs mx-1 ${
-              isUser ? 'bg-white/10 text-white' : 'bg-white/10 text-gray-200 border border-white/5'
-            }`}
-          >
-            {processContent(children)}
-          </code>
+              {verdict && <VerdictPill verdict={verdict} />}
+            </div>
+            <blockquote className="text-[1.12rem] leading-[2] font-medium">{localDigits(mainText)}</blockquote>
+            {sourceText && <figcaption className="source mt-2 text-[0.9rem] leading-relaxed text-muted">{sourceText}</figcaption>}
+          </figure>
         );
       }
 
       return (
-        <div className="my-4 overflow-x-auto rounded-lg border border-[#D4AF37]/20 max-w-full">
-          <pre
-            className={`p-4 font-mono text-xs whitespace-pre-wrap break-words ${
-              isUser ? 'bg-black/5 text-[#0F1117]' : 'bg-[#111622] text-[#CFD4E0]'
-            }`}
-          >
-            {processContent(children)}
+        <div className="my-4 overflow-x-auto rounded-xl border border-line bg-surface">
+          <pre dir="auto" className="p-4 font-mono text-sm whitespace-pre-wrap break-words">
+            {content}
           </pre>
         </div>
       );
     },
-    // Table Elements
+    code: ({ children }: MarkdownProps) => (
+      <code className="mx-0.5 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[0.85em]">{children}</code>
+    ),
     table: ({ children }: MarkdownProps) => (
-      <div className="overflow-x-auto my-4 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/[0.03] max-w-full">
-        <table
-          className={`min-w-full border-collapse table-fixed text-right ${isUser ? 'text-[#0F1117]' : 'text-[#E8ECF5]'}`}
-        >
-          {children}
-        </table>
+      <div className="my-4 overflow-x-auto rounded-xl border border-line">
+        <table className="min-w-full border-collapse text-right text-[0.95rem]">{children}</table>
       </div>
     ),
-    thead: ({ children }: MarkdownProps) => (
-      <thead
-        className={isUser ? 'bg-[#D4AF37]/10' : 'bg-[#D4AF37]/10 border-b border-[#D4AF37]/30'}
-      >
-        {children}
-      </thead>
-    ),
-    tbody: ({ children }: MarkdownProps) => (
-      <tbody className={`divide-y ${isUser ? 'divide-[#D4AF37]/10' : 'divide-[#D4AF37]/15'}`}>
-        {children}
-      </tbody>
-    ),
-    tr: ({ children }: MarkdownProps) => (
-      <tr
-        className={`transition-colors ${isUser ? 'hover:bg-[#D4AF37]/5' : 'hover:bg-[#D4AF37]/5'}`}
-      >
-        {children}
-      </tr>
-    ),
+    thead: ({ children }: MarkdownProps) => <thead className="bg-surface-2">{children}</thead>,
+    tbody: ({ children }: MarkdownProps) => <tbody className="divide-y divide-line">{children}</tbody>,
     th: ({ children }: MarkdownProps) => (
-      <th
-        className={`px-4 py-3 font-bold text-sm align-top ${
-          isUser ? 'text-black border-black/20' : 'text-[#D4AF37] border-[#D4AF37]/30'
-        }`}
-      >
-        {processContent(children)}
-      </th>
+      <th className="px-4 py-2.5 text-right font-semibold align-top">{processContent(children)}</th>
     ),
-    td: ({ children }: MarkdownProps) => (
-      <td
-        className={`px-4 py-3 text-sm border-l align-top break-words ${
-          isUser ? 'border-black/10' : 'border-[#D4AF37]/10'
-        }`}
-      >
-        {processContent(children)}
-      </td>
-    ),
+    td: ({ children }: MarkdownProps) => <td className="px-4 py-2.5 align-top break-words">{processContent(children)}</td>,
   };
 
-  return (
-    <>
-      <article
-        className={`flex w-full mb-6 ${isUser ? 'justify-start' : 'justify-end'}`}
-        aria-label={isUser ? 'User message' : 'Salaf AI response'}
-      >
-        <div
-          className={`relative text-base overflow-hidden transition-all duration-300 group
-          ${
-            isUser
-              ? 'max-w-[88%] md:max-w-[78%] rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-sm bg-[#D4AF37]/[0.08] text-[#EAEAEA] border border-[#D4AF37]/20'
-              : message.isError
-                ? 'max-w-[90%] md:max-w-[82%] text-red-200 leading-[1.8] bg-red-900/20 border border-red-500/40 rounded-2xl rounded-tl-sm px-6 py-4'
-                : 'max-w-[90%] md:max-w-[82%] text-[#EAEAEA] font-light leading-[1.8] bg-[#111111]/80 border border-white/[0.05] rounded-2xl rounded-tl-sm px-5 py-4'
-          }
-          `}
-        >
-          {/* Attachment Display */}
+  if (isUser) {
+    return (
+      <article aria-label="User message" className="mb-8 flex justify-start slide-in">
+        <div className="max-w-[85%] md:max-w-[75%]">
           {message.attachment && (
-            <div className="mb-4 rounded-lg overflow-hidden bg-[#D4AF37]/5 border border-[#D4AF37]/15">
+            <div className="mb-2 overflow-hidden rounded-2xl border border-line">
               {message.attachment.mimeType.startsWith('image/') ? (
-                <img
-                  src={message.attachment.data}
-                  alt="المرفق المرفوع"
-                  className="max-w-full h-auto max-h-[300px] object-contain"
-                />
+                <img src={message.attachment.data} alt={t.message.attachedImage} className="max-h-72 w-full object-cover" />
               ) : (
-                <div className="flex items-center gap-3 p-3">
-                  <div className="p-2 bg-[#D4AF37]/15 rounded-lg">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                      <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold truncate max-w-[200px]">
-                      {message.attachment.name}
-                    </span>
-                    <span className="text-xs opacity-70 uppercase">
-                      {message.attachment.mimeType.split('/')[1]}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-3 bg-surface px-4 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger-soft text-[0.7rem] font-bold text-danger">PDF</span>
+                  <span className="truncate text-[0.95rem]">{message.attachment.name}</span>
                 </div>
               )}
             </div>
           )}
-
           {message.text && (
-            <div className="markdown-content w-full max-w-full">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                {processedText}
-              </ReactMarkdown>
-            </div>
+            <p className="rounded-3xl rounded-tr-lg bg-surface-2 px-5 py-3 text-[1.05rem] leading-[1.8] whitespace-pre-wrap break-words">
+              {message.text}
+            </p>
           )}
-
-          <div className={trailingMetaClassName}>
-            <div
-              className={`text-[10px] opacity-60 ${isUser ? 'text-[#D4AF37]/60' : 'text-[#D4AF37]/50'}`}
-            >
-              {formattedTime}
-            </div>
-
-            {renderTrailingActions()}
-          </div>
         </div>
       </article>
+    );
+  }
 
-      {/* Sources Modal */}
-      {showSources && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowSources(false)}
-          />
-          <div className="relative w-full max-w-lg bg-[#111111] border border-[#D4AF37]/20 rounded-xl shadow-sm p-6 md:p-8 transform transition-all animate-in zoom-in-95">
+  const avatar = (
+    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface ring-1 ring-line">
+      <img src="/logo.png" alt="" width="22" height="22" className="h-[22px] w-[22px]" />
+    </div>
+  );
+
+  if (message.isError) {
+    return (
+      <article aria-label="Salaf AI response" className={`mb-10 flex gap-3 ${isNew ? 'answer-reveal' : ''}`}>
+        {avatar}
+        <div className="min-w-0 flex-1 rounded-2xl bg-danger-soft px-4 py-3">
+          <p className="text-[1rem] leading-[1.85] whitespace-pre-wrap">{localDigits(message.text)}</p>
+          {canRetry && onRetry && (
             <button
-              onClick={() => setShowSources(false)}
-              className="absolute top-4 left-4 text-[#D4AF37]/60 hover:text-[#D4AF37] transition-colors"
-              aria-label="إغلاق المصادر"
+              type="button"
+              onClick={() => onRetry(message.id)}
+              data-testid="retry-message"
+              className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-surface px-4 text-[0.9rem] font-semibold shadow-sm transition-colors hover:bg-surface-3"
+              aria-label={t.message.retry}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
+              <RotateCw size={15} strokeWidth={2.2} aria-hidden="true" />
+              {t.message.retry}
             </button>
-
-            <h3 className="text-lg font-semibold text-[#D4AF37] mb-6 flex items-center gap-2 pb-4 border-b border-[#D4AF37]/15">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-              </svg>
-              المصادر والمراجع
-            </h3>
-
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pl-2">
-              <ul className="space-y-4">
-                {sourcesList.map((source, index) => (
-                  <li
-                    key={index}
-                    className="flex gap-3 text-[#E0E0E0] text-sm leading-relaxed bg-[#D4AF37]/5 p-3 rounded-lg border border-[#D4AF37]/10"
-                  >
-                    <span className="shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold font-mono border border-[#D4AF37]/30">
-                      {toArabicNumerals((index + 1).toString())}
-                    </span>
-                    <span>{formatSourceText(source)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          )}
         </div>
-      )}
-    </>
+      </article>
+    );
+  }
+
+  const feedbackLabel = hasSubmittedFeedback ? t.message.feedbackAgain : t.message.feedback;
+
+  return (
+    <article aria-label="Salaf AI response" className={`mb-10 flex gap-3 ${isNew ? 'answer-reveal' : ''}`}>
+      {avatar}
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="text-[1.05rem] leading-[1.95]">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+            {processedText}
+          </ReactMarkdown>
+        </div>
+
+        {sourcesList.length > 0 && (
+          <section className="mt-5" aria-label={t.message.sources}>
+            <h4 className="mb-2 text-[0.85rem] font-semibold text-faint">{t.message.sources}</h4>
+            <ol className="grid gap-2 sm:grid-cols-2">
+              {sourcesList.map((source, index) => {
+                const text = source.replace(/^\d+\.\s*/, '');
+                const url = text.match(URL_PATTERN)?.[0];
+                const label = localDigits(text.replace(URL_PATTERN, '').replace(/[\s،,:|\-–—]+$/, '').trim());
+                const content = (
+                  <>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gold-soft text-[0.75rem] font-bold text-gold-text">
+                      {localDigits(String(index + 1))}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="line-clamp-2 text-[0.9rem] leading-snug">{label}</span>
+                      {url && <span dir="ltr" className="mt-0.5 block truncate text-right text-[0.78rem] text-faint">{getHostname(url)}</span>}
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={index}>
+                    {url ? (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-full items-start gap-2.5 rounded-xl bg-surface-2 px-3 py-2.5 transition-all hover:-translate-y-0.5 hover:bg-surface-3 hover:shadow-[0_10px_24px_-16px_rgba(0,0,0,0.5)]"
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <div className="flex h-full items-start gap-2.5 rounded-xl bg-surface-2 px-3 py-2.5">{content}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+
+        <div className="mt-3 flex items-center gap-0.5">
+          <IconButton label={isCopied ? t.message.copied : t.message.copy} onClick={handleCopy}>
+            {isCopied ? (
+              <Check size={16} strokeWidth={2.4} aria-hidden="true" />
+            ) : (
+              <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
+            )}
+          </IconButton>
+          {onFeedback && (
+            <IconButton label={feedbackLabel} onClick={handleFeedbackClick} data-testid="feedback-message">
+              <ThumbsDown size={16} strokeWidth={1.9} fill={hasSubmittedFeedback ? 'currentColor' : 'none'} aria-hidden="true" />
+            </IconButton>
+          )}
+          <span className="ms-2 text-[0.8rem] text-faint">{formatTime(message.timestamp, language)}</span>
+        </div>
+      </div>
+    </article>
   );
 };

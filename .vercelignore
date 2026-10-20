@@ -1,0 +1,10 @@
+.env*
+!.env.example
+node_modules
+dist
+dev-dist
+test-results
+playwright-report
+.claude
+api/**/*.test.ts
+.taste-skill

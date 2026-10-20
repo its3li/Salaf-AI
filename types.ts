@@ -1,7 +1,12 @@
 export interface Attachment {
   name: string;
   mimeType: string;
-  data: string; // Base64 string
+  data: string; // Data URL for images; empty for PDFs (only the extracted text is kept)
+  extractedText?: string;
+  /** Why no text came out of a PDF; the composer explains it in the interface language. */
+  extractionError?: 'pdfNoText' | 'pdfExtractFailed';
+  pageCount?: number;
+  textTruncated?: boolean;
 }
 
 export interface Message {
@@ -11,6 +16,7 @@ export interface Message {
   attachment?: Attachment;
   timestamp: Date;
   isError?: boolean;
+  errorCode?: string;
 }
 
 export interface ChatSession {
@@ -18,9 +24,4 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   createdAt: number;
-}
-
-export interface ChatState {
-  messages: Message[];
-  isLoading: boolean;
 }

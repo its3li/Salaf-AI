@@ -3,6 +3,27 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const MAX_FIELD_LENGTH = 12000;
 const DISCORD_FIELD_LIMIT = 1024;
 const DISCORD_WEBHOOK_TIMEOUT_MS = 5000;
+const FEEDBACK_LIMIT_PER_WINDOW = 5;
+const FEEDBACK_WINDOW_MS = 10 * 60 * 1000;
+
+// Best-effort per-instance limiter so a script cannot flood the Discord channel.
+const feedbackCounters = new Map<string, { count: number; resetAt: number }>();
+
+const isFeedbackRateLimited = (req: VercelRequest) => {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const ip =
+    (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0]?.trim() || 'unknown';
+  const now = Date.now();
+  for (const [key, value] of feedbackCounters) {
+    if (value.resetAt <= now) feedbackCounters.delete(key);
+  }
+  const entry = feedbackCounters.get(ip) ?? { count: 0, resetAt: now + FEEDBACK_WINDOW_MS };
+  entry.count += 1;
+  feedbackCounters.set(ip, entry);
+  return entry.count > FEEDBACK_LIMIT_PER_WINDOW;
+};
+
+export const clearFeedbackRateLimitForTests = () => feedbackCounters.clear();
 
 interface FeedbackPayload {
   messageId: string;
@@ -164,6 +185,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!isFeedbackPayload(req.body)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR' } });
+  }
+
+  if (isFeedbackRateLimited(req)) {
+    return res.status(429).json({ error: { code: 'RATE_LIMITED' } });
   }
 
   const feedback: FeedbackPayload = {

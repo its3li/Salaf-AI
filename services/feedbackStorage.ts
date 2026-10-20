@@ -1,3 +1,5 @@
+import { FEEDBACK_STORE, openAppDb } from './chatStorage';
+
 export interface MessageFeedback {
   messageId: string;
   value: 'inaccurate';
@@ -10,6 +12,7 @@ export interface MessageFeedback {
 }
 
 const FEEDBACK_KEY = 'salaf-ai-message-feedback';
+const MAX_FEEDBACK_FIELD_CHARS = 12000;
 
 const readFeedback = (): MessageFeedback[] => {
   try {
@@ -35,8 +38,33 @@ export interface MessageFeedbackInput {
 
 const saveFeedback = (feedback: MessageFeedback) => {
   const existingFeedback = readFeedback().filter((item) => item.messageId !== feedback.messageId);
-  localStorage.setItem(FEEDBACK_KEY, JSON.stringify([feedback, ...existingFeedback]));
+  const nextFeedback = [feedback, ...existingFeedback];
+  try {
+    localStorage.setItem(FEEDBACK_KEY, JSON.stringify(nextFeedback));
+  } catch (error) {
+    // localStorage may be full of chats; IndexedDB below still keeps the record.
+    console.warn('Feedback could not be saved to local storage:', error);
+  }
+  void saveFeedbackToIndexedDb(feedback);
   return feedback;
+};
+
+const saveFeedbackToIndexedDb = async (feedback: MessageFeedback) => {
+  const db = await openAppDb();
+  if (!db) return;
+
+  await new Promise<void>((resolve) => {
+    const transaction = db.transaction(FEEDBACK_STORE, 'readwrite');
+    const request = transaction.objectStore(FEEDBACK_STORE).put(feedback);
+
+    request.onerror = () => {
+      console.error('Error saving feedback to IndexedDB:', request.error);
+      resolve();
+    };
+    request.onsuccess = () => resolve();
+    transaction.oncomplete = () => db.close();
+    transaction.onerror = () => db.close();
+  });
 };
 
 export const submitMessageFeedback = async (
@@ -44,6 +72,9 @@ export const submitMessageFeedback = async (
 ): Promise<MessageFeedback> => {
   const feedback: MessageFeedback = {
     ...input,
+    // /api/feedback rejects fields over 12,000 characters, and Discord only shows the first 1,024.
+    question: input.question.slice(0, MAX_FEEDBACK_FIELD_CHARS),
+    answer: input.answer.slice(0, MAX_FEEDBACK_FIELD_CHARS),
     value: 'inaccurate',
     createdAt: Date.now(),
   };

@@ -43,6 +43,19 @@ describe('MessageBubble guardrails', () => {
     expect(container.querySelector('.source')?.textContent).toContain('متفق عليه');
   });
 
+  it('keeps inline code inline and renders fenced code as a block', () => {
+    const { container } = render(
+      <MessageBubble
+        message={{ ...baseMessage, text: 'استعمل `isnad` هنا\n\n```\nblock code\n```' }}
+      />
+    );
+
+    const inlineCode = container.querySelector('p code');
+    expect(inlineCode?.textContent).toBe('isnad');
+    expect(container.querySelectorAll('pre')).toHaveLength(1);
+    expect(container.querySelector('pre')?.textContent).toBe('block code');
+  });
+
   it('calls retry for retryable error responses', () => {
     const handleRetry = vi.fn();
     render(

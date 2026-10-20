@@ -1,46 +1,398 @@
 @import 'tailwindcss';
 
-@keyframes goldenGlow {
-  0%,
-  100% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.1);
+/*
+ * باحث السلف: a modern chat app in black/white with the logo's gold, soft glow and depth.
+ * Colours come from CSS variables so one set of classes serves both themes; the theme is set on
+ * <html data-theme="dark|light"> before first paint (see index.html).
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-line: var(--c-line);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-gold: #d4af37;
+  --color-gold-text: var(--c-gold-text);
+  --color-gold-soft: var(--c-gold-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+
+  --font-sans: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-quran: 'Amiri Quran', 'IBM Plex Sans Arabic', serif;
+}
+
+:root,
+[data-theme='light'] {
+  --c-bg: #faf9f6;
+  --c-surface: #ffffff;
+  --c-surface-2: #f2f0eb;
+  --c-surface-3: #e8e5de;
+  --c-line: rgb(20 18 12 / 0.09);
+  --c-text: #17160f;
+  --c-muted: #64615a;
+  --c-faint: #8f8b82;
+  --c-gold-text: #9a7914;
+  --c-gold-soft: rgb(212 175 55 / 0.14);
+  --c-danger: #b42318;
+  --c-danger-soft: rgb(180 35 24 / 0.08);
+  --glow: rgb(212 175 55 / 0.22);
+  --shadow-float: 0 1px 2px rgb(20 18 12 / 0.04), 0 12px 32px -12px rgb(20 18 12 / 0.16);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --c-bg: #0b0b0c;
+  --c-surface: #141416;
+  --c-surface-2: #1c1c1f;
+  --c-surface-3: #26262a;
+  --c-line: rgb(255 255 255 / 0.08);
+  --c-text: #ededea;
+  --c-muted: #a3a29c;
+  --c-faint: #76756f;
+  --c-gold-text: #e2c35c;
+  --c-gold-soft: rgb(212 175 55 / 0.12);
+  --c-danger: #f0846f;
+  --c-danger-soft: rgb(240 132 111 / 0.1);
+  --glow: rgb(212 175 55 / 0.28);
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -14px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
-  50% {
-    box-shadow: 0 0 40px rgba(212, 175, 55, 0.2);
+
+  body {
+    margin: 0;
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  ::selection {
+    background: var(--c-gold-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid #d4af37;
+    outline-offset: 2px;
   }
 }
 
-@keyframes goldenPulse {
+/* Scrollbars everywhere: a thin rounded thumb in the theme's colours, no track and no arrows.
+   It brightens to gold under the pointer. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--c-faint) 35%, transparent);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+}
+
+/* Firefox has no ::-webkit-scrollbar; Chromium would ignore the rules above if these were set. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--c-faint) 40%, transparent) transparent;
+  }
+}
+
+/* --- Glow and depth ----------------------------------------------------------------- */
+
+/* A soft wash of gold from the top of the page. */
+.page-glow {
+  background:
+    radial-gradient(60rem 28rem at 50% -8rem, var(--glow), transparent 70%),
+    var(--c-bg);
+}
+
+/* Blurred gold halo behind the logo. */
+.logo-halo {
+  position: relative;
+  isolation: isolate;
+}
+
+.logo-halo::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--glow), transparent);
+  filter: blur(18px);
+  animation: halo-breathe 6s ease-in-out infinite;
+}
+
+@keyframes halo-breathe {
   0%,
   100% {
-    opacity: 0.6;
+    opacity: 0.75;
+    transform: scale(0.96);
   }
   50% {
     opacity: 1;
+    transform: scale(1.04);
   }
 }
 
-.golden-glow {
-  animation: goldenGlow 3s ease-in-out infinite;
+/* The composer floats on a soft shadow and lights up in gold when focused. */
+.composer {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-float);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.golden-pulse {
-  animation: goldenPulse 2s ease-in-out infinite;
+.composer:focus-within {
+  border-color: rgb(212 175 55 / 0.45);
+  box-shadow: var(--shadow-float), 0 0 0 4px rgb(212 175 55 / 0.12), 0 8px 40px -8px var(--glow);
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+/* Frosted bars over scrolling content. */
+.frosted {
+  background: color-mix(in srgb, var(--c-bg) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(212, 175, 55, 0.05);
+/* "Thinking" text: a light sweep across the words while the answer is prepared. */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--c-muted) 0%,
+    var(--c-muted) 35%,
+    var(--c-gold-text) 50%,
+    var(--c-muted) 65%,
+    var(--c-muted) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.2);
-  border-radius: 3px;
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.35);
+/* --- Sacred text in answers ------------------------------------------------------------- */
+
+.quran {
+  font-family: var(--font-quran);
+  font-size: 1.55rem;
+  line-height: 2.75rem;
+  text-align: center;
+  color: var(--c-text);
+  padding: 1.25rem 1.25rem 1rem;
+  margin-block: 1.25rem;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(30rem 8rem at 50% 0, var(--c-gold-soft), transparent 75%),
+    var(--c-surface);
+  border: 1px solid var(--c-line);
+}
+
+.quran .verse-mark {
+  color: var(--c-gold-text);
+}
+
+/* --- Motion ---------------------------------------------------------------------------- */
+
+.answer-reveal {
+  animation: answer-reveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes answer-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.theme-switching,
+.theme-switching * {
+  transition: none !important;
+}
+
+/* Entrances that follow one another: style={{ '--d': '120ms' }} sets each one's delay. */
+.rise {
+  animation: fade-up 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* Menus open from their button. */
+.pop-in {
+  transform-origin: top left;
+  animation: pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
+/* The sidebar's settings menu opens upward from its footer. */
+.menu-up {
+  transform-origin: bottom center;
+  animation: menu-up 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes menu-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+/* The support heart beats softly. */
+.heartbeat {
+  color: #f43f5e;
+  transform-origin: center;
+  animation: heartbeat 1.8s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%,
+  40%,
+  100% {
+    transform: scale(1);
+  }
+  10% {
+    transform: scale(1.22);
+  }
+  20% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.14);
+  }
+}
+
+/* The user's question slides in from its own side. */
+.slide-in {
+  animation: slide-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px) scale(0.98);
+  }
+}
+
+/* Sections of the about page rise as they scroll into view, where the browser can tie it to scrolling. */
+@supports (animation-timeline: view()) {
+  .reveal-on-scroll {
+    animation: fade-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 28%;
+  }
+}
+
+/* View transitions (services/viewTransition.ts): the theme spreads from the switch in a circle,
+   a new language and a new page cross-fade through a soft blur. */
+html[data-transition='theme']::view-transition-old(root),
+html[data-transition='theme']::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-transition='language']::view-transition-old(root),
+html[data-transition='page']::view-transition-old(root) {
+  animation: vt-out 200ms ease-in both;
+}
+
+html[data-transition='language']::view-transition-new(root),
+html[data-transition='page']::view-transition-new(root) {
+  animation: vt-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-halo::before,
+  .shimmer-text,
+  .answer-reveal,
+  .fade-up,
+  .rise,
+  .pop-in,
+  .slide-in,
+  .heartbeat,
+  .menu-up,
+  .reveal-on-scroll {
+    animation: none;
+  }
+
+  .shimmer-text {
+    color: var(--c-muted);
+    background: none;
+  }
 }

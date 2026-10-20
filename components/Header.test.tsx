@@ -3,19 +3,20 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Header } from './Header';
 
 describe('Header component', () => {
-  it('renders the header title correctly', () => {
-    render(<Header onToggleSidebar={() => {}} onHomeClick={() => {}} />);
-    expect(screen.getByText('باحث السلف')).toBeDefined();
+  it('shows the title of the conversation being read', () => {
+    render(<Header title="ما معنى التوحيد؟" onToggleSidebar={() => {}} onNewChat={() => {}} />);
+    expect(screen.getByText('ما معنى التوحيد؟')).toBeDefined();
   });
 
-  it('triggers onToggleSidebar when the menu button is clicked', () => {
+  it('opens the sidebar from the menu button and starts a new question', () => {
     const handleToggle = vi.fn();
-    const { container } = render(<Header onToggleSidebar={handleToggle} onHomeClick={() => {}} />);
-    
-    // There are two buttons, the first one is the menu button
-    const buttons = container.querySelectorAll('button');
-    fireEvent.click(buttons[0]);
-    
+    const handleNewChat = vi.fn();
+    render(<Header title="سؤال جديد" onToggleSidebar={handleToggle} onNewChat={handleNewChat} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'فتح القائمة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'سؤال جديد' }));
+
     expect(handleToggle).toHaveBeenCalledTimes(1);
+    expect(handleNewChat).toHaveBeenCalledTimes(1);
   });
 });

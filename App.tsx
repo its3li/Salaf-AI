@@ -4,83 +4,51 @@ import { Header } from './components/Header';
 import { ChatInput } from './components/ChatInput';
 import { MessageBubble } from './components/MessageBubble';
 import { InstallPrompt } from './components/InstallPrompt';
+import { InstallGuide } from './components/InstallGuide';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ResearchCard } from './components/ResearchCard';
+import { HomeHero } from './components/HomeHero';
+import { AboutPage } from './components/AboutPage';
+import { Sidebar } from './components/Sidebar';
+import { CustomDialog } from './components/CustomDialog';
 import { useChats } from './hooks/useChats';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useAppDialog } from './hooks/useAppDialog';
-import { Sidebar } from './components/Sidebar';
-import { LandingPage } from './components/LandingPage';
-import { CustomDialog } from './components/CustomDialog';
+import { useTheme } from './hooks/useTheme';
+import { runViewTransition } from './services/viewTransition';
+import { useI18n } from './i18n/context';
 
-type ViewState = 'landing' | 'chat';
+type ViewState = 'chat' | 'about';
 
-const VIEW_STATE_KEY = 'salaf-ai-view';
+const ABOUT_PATH = '/about';
 
-const getInitialView = (): ViewState => {
-  if (typeof localStorage === 'undefined') return 'landing';
-  return localStorage.getItem(VIEW_STATE_KEY) === 'chat' ? 'chat' : 'landing';
-};
-
-const PROMPT_CATEGORIES = [
-  {
-    id: 'aqeedah',
-    label: 'عقيدة',
-    prompts: ['ما معنى التوحيد؟', 'ما الفرق بين توحيد الربوبية والألوهية؟', 'ما معنى الاتباع؟'],
-  },
-  {
-    id: 'fiqh',
-    label: 'فقه',
-    prompts: ['حكم تارك الصلاة', 'ما شروط صحة الوضوء؟', 'متى يجوز الجمع بين الصلاتين؟'],
-  },
-  {
-    id: 'hadith',
-    label: 'حديث',
-    prompts: ['اشرح حديث إنما الأعمال بالنيات', 'كيف أعرف الحديث الصحيح؟', 'ما معنى الإسناد؟'],
-  },
-  {
-    id: 'tafsir',
-    label: 'تفسير',
-    prompts: ['فسر سورة الفاتحة باختصار', 'ما معنى آية الكرسي؟', 'ما أسباب النزول؟'],
-  },
-  {
-    id: 'seerah',
-    label: 'سيرة',
-    prompts: ['ما أهم دروس الهجرة؟', 'حدثني عن غزوة بدر', 'ما أخلاق النبي ﷺ في الدعوة؟'],
-  },
-] as const;
-
-const DHIKR_PHRASES = [
-  'سبحان الله',
-  'الحمدلله',
-  'لا إله إلا الله',
-  'الله أكبر',
-  'لا حول ولا قوة إلا بالله',
-  'اللهم صلِّ على محمد ﷺ',
-];
+const viewFromPath = (): ViewState =>
+  typeof window !== 'undefined' && window.location.pathname.startsWith(ABOUT_PATH) ? 'about' : 'chat';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(getInitialView);
+  const [view, setView] = useState<ViewState>(viewFromPath);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [dhikrIndex, setDhikrIndex] = useState(0);
-  const [activePromptCategoryId, setActivePromptCategoryId] = useState<
-    (typeof PROMPT_CATEGORIES)[number]['id']
-  >(PROMPT_CATEGORIES[0].id);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
+  const { t } = useI18n();
+  const { theme, toggleTheme } = useTheme();
   const { dialogState, setInputValue, showDialog, handleConfirm, handleCancel } = useAppDialog();
-  const { handleInstallClick } = usePwaInstall();
+  const { isInstalled, canPromptInstall, promptInstall, isGuideOpen, openInstallGuide, closeInstallGuide } =
+    usePwaInstall();
   const {
     chats,
     activeChatId,
-    loadingChatId,
     activeChat,
     currentMessages,
+    loadingChatIds,
+    requestSteps,
+    lastArrivedMessageId,
+    quota,
     createNewChat,
     handleSendMessage,
     handleRetryMessage,
@@ -93,10 +61,8 @@ const App: React.FC = () => {
     handleExportChats,
     handleImportChats,
   } = useChats(showDialog);
-  const displayedDhikrIndex = loadingChatId ? dhikrIndex : 0;
-  const activePromptCategory =
-    PROMPT_CATEGORIES.find((category) => category.id === activePromptCategoryId) ??
-    PROMPT_CATEGORIES[0];
+  const isActiveChatLoading = activeChatId !== null && loadingChatIds.includes(activeChatId);
+  const hasMessages = currentMessages.length > 0;
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -111,63 +77,74 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Cycle Dhikr phrases when loading
   useEffect(() => {
-    if (!loadingChatId) return;
+    const handlePopState = () => setView(viewFromPath());
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
-    const interval = window.setInterval(() => {
-      setDhikrIndex((prev) => (prev + 1) % DHIKR_PHRASES.length);
-    }, 2500);
-
-    return () => window.clearInterval(interval);
-  }, [loadingChatId]);
-
-  // SCROLL LOGIC
+  // After sending, bring the question and the waiting indicator into view.
   useEffect(() => {
-    if (view === 'chat' && currentMessages.length > 0) {
-      const lastMessage = currentMessages[currentMessages.length - 1];
-      if (lastMessage.role === 'user') {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
+    if (view !== 'chat' || currentMessages.length === 0) return;
+    if (currentMessages[currentMessages.length - 1].role === 'user') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [currentMessages, view]);
 
+  // Open a conversation at its latest exchange.
   useEffect(() => {
-    if (view === 'chat') {
+    if (view === 'chat' && hasMessages) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
       }, 50);
     }
-  }, [activeChatId, view]);
+  }, [activeChatId, view, hasMessages]);
 
-  const changeView = (newView: ViewState) => {
-    if (newView === view || isTransitioning) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-      localStorage.setItem(VIEW_STATE_KEY, newView);
-      setView(newView);
-      setTimeout(() => setIsTransitioning(false), 50);
-    }, 250);
+  // A finished answer is revealed once and scrolled to its first line, so reading starts at the top.
+  useEffect(() => {
+    if (!lastArrivedMessageId) return;
+    document
+      .querySelector(`[data-message-id="${lastArrivedMessageId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [lastArrivedMessageId]);
+
+  const navigate = (next: ViewState) => {
+    window.history.pushState(null, '', next === 'about' ? ABOUT_PATH : '/');
+    runViewTransition('page', () => {
+      setView(next);
+      setIsSidebarOpen(false);
+    });
+    window.scrollTo(0, 0);
   };
-
-  const enterApp = () => {
-    changeView('chat');
-    createNewChat(false);
-  };
-
-  const isActiveChatLoading = activeChatId !== null && loadingChatId === activeChatId;
 
   const retryableErrorMessageId = useMemo(() => {
-    if (!activeChatId || loadingChatId === activeChatId) return null;
-    if (!activeChat || activeChat.messages.length < 2) return null;
+    if (isActiveChatLoading || !activeChat || activeChat.messages.length < 2) return null;
 
     const lastMessage = activeChat.messages[activeChat.messages.length - 1];
     const previousMessage = activeChat.messages[activeChat.messages.length - 2];
 
     if (!lastMessage.isError || previousMessage.role !== 'user') return null;
+    // Retrying cannot help until the daily quota resets.
+    if (lastMessage.errorCode === 'DAILY_LIMIT_REACHED') return null;
 
     return lastMessage.id;
-  }, [activeChat, activeChatId, loadingChatId]);
+  }, [activeChat, isActiveChatLoading]);
+
+  const composer = (
+    <ChatInput
+      onSend={(text, attachment) => {
+        setInputText('');
+        void handleSendMessage(text, attachment);
+      }}
+      onStop={handleStopGeneration}
+      canStop={isActiveChatLoading}
+      isLoading={isActiveChatLoading}
+      isDisabled={!isOnline}
+      input={inputText}
+      setInput={setInputText}
+      quota={quota}
+    />
+  );
 
   return (
     <ErrorBoundary>
@@ -180,20 +157,38 @@ const App: React.FC = () => {
         onCancel={handleCancel}
       />
       <Analytics />
-      <InstallPrompt onInstall={handleInstallClick} />
-      <div className={`transition-opacity duration-300 ease-in-out ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-      {view === 'landing' ? (
-        <LandingPage onStartChat={enterApp} onInstallClick={handleInstallClick} />
+      <InstallPrompt onInstall={openInstallGuide} />
+      <InstallGuide
+        isOpen={isGuideOpen}
+        isInstalled={isInstalled}
+        canPromptInstall={canPromptInstall}
+        onPromptInstall={() => void promptInstall()}
+        onClose={closeInstallGuide}
+      />
+
+      {view === 'about' ? (
+        <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} />
       ) : (
-        <div className="flex h-screen overflow-hidden bg-[#0A0A0A] text-[#FAFAFA]">
+        <div className="flex h-dvh overflow-hidden bg-bg text-text">
           <Sidebar
             isOpen={isSidebarOpen}
             isFocusMode={isFocusMode}
             onClose={() => setIsSidebarOpen(false)}
-            onNewChat={() => createNewChat(false)}
+            onNewChat={() => {
+              createNewChat(false);
+              setIsSidebarOpen(false);
+            }}
+            onOpenAbout={() => navigate('about')}
+            onInstall={isInstalled ? undefined : openInstallGuide}
             chats={chats}
             activeChatId={activeChatId}
-            onSelectChat={handleSelectChat}
+            quota={quota}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onSelectChat={(chatId) => {
+              handleSelectChat(chatId);
+              setIsSidebarOpen(false);
+            }}
             onDeleteChat={handleDeleteChat}
             onRenameChat={handleRenameChat}
             onClearAllChats={handleClearAllChats}
@@ -202,152 +197,64 @@ const App: React.FC = () => {
             onToggleFocus={() => setIsFocusMode(true)}
           />
 
-          <div className="flex-1 flex flex-col h-full relative w-full">
+          <div className={`relative flex h-full min-w-0 flex-1 flex-col ${hasMessages ? '' : 'page-glow'}`}>
             <Header
+              title={hasMessages && activeChat ? activeChat.title : t.appName}
+              showNewChat={hasMessages}
+              theme={theme}
+              onToggleTheme={toggleTheme}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-              onHomeClick={() => changeView('landing')}
+              onNewChat={() => createNewChat(false)}
               isFocusMode={isFocusMode}
               onToggleFocus={() => setIsFocusMode(!isFocusMode)}
             />
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar relative">
-              <div className="max-w-5xl mx-auto w-full h-full flex flex-col">
+            <main className="relative flex flex-1 flex-col overflow-y-auto">
+              <div className="mx-auto flex w-full max-w-[48rem] flex-1 flex-col px-4 pt-6 md:px-6">
                 {!isOnline && (
-                  <div className="mb-4 rounded-lg border border-[#D4AF37]/20 bg-[#D4AF37]/10 px-4 py-3 text-center text-sm leading-relaxed text-[#E0E0E0]">
-                    أنت غير متصل الآن. يمكنك مراجعة المحادثات المحفوظة، وسيعود إرسال الأسئلة عند
-                    عودة الاتصال.
-                  </div>
+                  <p
+                    data-testid="offline-banner"
+                    className="mb-5 rounded-2xl border border-line bg-surface px-4 py-3 text-center text-[0.95rem] text-muted"
+                  >
+                    {t.chat.offline}
+                  </p>
                 )}
-                {currentMessages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center select-none px-4 animate-in fade-in duration-500 pb-10">
-                    <div className="flex-1 flex flex-col items-center justify-center w-full">
-                      <img
-                        src="/logo.png"
-                        alt="Salaf AI"
-                        width="240"
-                        height="240"
-                        className="w-52 md:w-64 h-auto mb-6 drop-shadow-[0_0_28px_rgba(212,175,55,0.3)]"
-                      />
-                      <h1 className="text-3xl md:text-4xl text-[#D4AF37] font-bold mb-3 text-center">
-                        Salaf AI - باحث السلف
-                      </h1>
-                      <p className="text-[#E0E0E0]/80 text-center max-w-2xl leading-relaxed font-light mb-4 text-sm md:text-base">
-                        Salaf AI هو ذكاء اصطناعي مصمم للإجابة على أسئلتك في الفقه والعقيدة والسيرة
-                        وفق منهج السلف الصالح، مستمداً من القرآن والسنة الصحيحة.
-                      </p>
-                      <div className="max-w-2xl mb-8 space-y-2 text-center text-xs md:text-sm leading-relaxed text-[#E0E0E0]/60">
-                        <p>
-                          راجع المصادر، ولا تجعل إجابات الذكاء الاصطناعي بديلاً عن سؤال أهل العلم في
-                          النوازل والفتاوى الخاصة.
-                        </p>
-                        <p>
-                          تُحفظ محادثاتك على هذا الجهاز، وتُرسل رسائلك ومرفقاتك إلى خدمة الذكاء
-                          الاصطناعي عند طلب الإجابة.
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="w-full max-w-3xl shrink-0 space-y-4">
-                      <div
-                        className="flex flex-wrap justify-center gap-2"
-                        role="tablist"
-                        aria-label="تصنيفات أمثلة الأسئلة"
-                      >
-                        {PROMPT_CATEGORIES.map((category) => {
-                          const isActive = category.id === activePromptCategory.id;
-                          return (
-                            <button
-                              key={category.id}
-                              type="button"
-                              role="tab"
-                              aria-selected={isActive}
-                              onClick={() => setActivePromptCategoryId(category.id)}
-                              className={`rounded-lg border px-3 py-1.5 text-xs md:text-sm font-medium transition-colors ${
-                                isActive
-                                  ? 'border-[#D4AF37]/60 bg-[#D4AF37]/20 text-[#D4AF37]'
-                                  : 'border-[#D4AF37]/15 bg-[#111111] text-[#E0E0E0]/70 hover:border-[#D4AF37]/35 hover:text-[#E0E0E0]'
-                              }`}
-                            >
-                              {category.label}
-                            </button>
-                          );
-                        })}
+                {hasMessages ? (
+                  <div className="pb-4">
+                    {currentMessages.map((msg) => (
+                      <div key={msg.id} data-message-id={msg.id} className="scroll-mt-20">
+                        <MessageBubble
+                          message={msg}
+                          isNew={msg.id === lastArrivedMessageId}
+                          canRetry={retryableErrorMessageId === msg.id}
+                          onRetry={(messageId) => void handleRetryMessage(messageId)}
+                          onFeedback={(messageId) => handleSubmitFeedback(messageId)}
+                        />
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {activePromptCategory.prompts.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => setInputText(q)}
-                          className="px-4 py-3 bg-[#D4AF37]/[0.06] border border-[#D4AF37]/20 hover:border-[#D4AF37]/60 rounded-2xl text-[#E0E0E0] text-sm transition-all duration-300 hover:bg-[#D4AF37]/15 hover:shadow-[0_0_20px_rgba(212,175,55,0.2)] active:scale-95"
-                        >
-                          {q}
-                        </button>
-                      ))}
-                      </div>
-                    </div>
+                    ))}
+                    {isActiveChatLoading && activeChatId && (
+                      <ResearchCard steps={requestSteps[activeChatId] ?? []} />
+                    )}
                   </div>
                 ) : (
-                  <div className="pb-10 space-y-3">
-                    {currentMessages.map((msg) => (
-                      <MessageBubble
-                        key={msg.id}
-                        message={msg}
-                        canRetry={retryableErrorMessageId === msg.id}
-                        onRetry={(messageId) => void handleRetryMessage(messageId)}
-                        onFeedback={(messageId) => handleSubmitFeedback(messageId)}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {isActiveChatLoading && currentMessages.length > 0 && (
-                  <div className="flex justify-end w-full mt-3 md:mt-4">
-                    <div className="flex flex-col items-center animate-in zoom-in-95 duration-700">
-                      <div className="bg-[#111111] border border-[#D4AF37]/25 rounded-xl px-4 py-2.5 shadow-[0_0_30px_rgba(212,175,55,0.1)] golden-glow min-w-[190px] max-w-[75vw] text-center sm:min-w-[240px] sm:px-5 md:min-w-[280px] md:max-w-sm md:px-6 md:py-3">
-                        <p className="text-[#D4AF37] text-sm font-medium leading-relaxed mb-2 min-h-[2rem] flex items-center justify-center sm:text-base sm:min-h-[2.5rem] md:text-lg md:mb-4 md:min-h-[3rem]">
-                          {DHIKR_PHRASES[displayedDhikrIndex]}
-                        </p>
-                        <div className="flex justify-center gap-1.5 mt-1.5 md:gap-2 md:mt-2">
-                          <span
-                            className="w-1 h-1 bg-[#D4AF37] rounded-full animate-bounce md:w-1.5 md:h-1.5"
-                            style={{ animationDelay: '0ms' }}
-                          />
-                          <span
-                            className="w-1 h-1 bg-[#D4AF37] rounded-full animate-bounce md:w-1.5 md:h-1.5"
-                            style={{ animationDelay: '150ms' }}
-                          />
-                          <span
-                            className="w-1 h-1 bg-[#D4AF37] rounded-full animate-bounce md:w-1.5 md:h-1.5"
-                            style={{ animationDelay: '300ms' }}
-                          />
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[#D4AF37]/60 text-xs font-medium opacity-60 md:mt-3 md:text-sm">
-                        جاري التحميل...
-                      </p>
-                    </div>
-                  </div>
+                  <HomeHero onPickQuestion={setInputText}>{composer}</HomeHero>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </main>
 
-            <ChatInput
-              onSend={(text, attachment) => {
-                setInputText('');
-                void handleSendMessage(text, attachment);
-              }}
-              onStop={handleStopGeneration}
-              canStop={isActiveChatLoading}
-              isLoading={isActiveChatLoading}
-              isDisabled={!isOnline}
-              input={inputText}
-              setInput={setInputText}
-            />
+            {hasMessages && (
+              <div className="shrink-0 bg-gradient-to-t from-bg via-bg to-transparent px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-5">
+                <div className="mx-auto max-w-[48rem]">{composer}</div>
+                <p className="mt-2 text-center text-[0.72rem] text-faint">
+                  {t.chat.disclaimer}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
-      </div>
     </ErrorBoundary>
   );
 };

@@ -1,5 +1,8 @@
+// Sends one real question to the deployed /api/chat and checks that text streams back.
+// Usage: npm run health:api   (SALAF_API_URL=https://<preview>.vercel.app/api/chat to check a preview)
+// Note: each run counts as one message against the daily limit of the machine running it.
 const endpoint = process.env.SALAF_API_URL || 'https://salaf-ai.vercel.app/api/chat';
-const timeoutMs = Number(process.env.SALAF_API_TIMEOUT_MS || 60000);
+const timeoutMs = Number(process.env.SALAF_API_TIMEOUT_MS || 120000);
 
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -11,14 +14,10 @@ try {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Client-Id': 'health-check-script',
     },
     body: JSON.stringify({
-      messages: [
-        {
-          role: 'user',
-          content: 'Health check: reply with one short sentence.',
-        },
-      ],
+      messages: [{ role: 'user', text: 'Health check: reply with one short sentence.' }],
     }),
     signal: controller.signal,
   });
@@ -41,6 +40,7 @@ try {
   const decoder = new TextDecoder();
   let receivedText = '';
   let buffer = '';
+  let streamError = null;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -54,19 +54,18 @@ try {
       const line = rawLine.trim();
       if (!line.startsWith('data:')) continue;
 
-      const dataPart = line.slice(5).trim();
-      if (!dataPart || dataPart === '[DONE]') continue;
-
       try {
-        const payload = JSON.parse(dataPart);
-        const content = payload?.choices?.[0]?.delta?.content || payload?.choices?.[0]?.message?.content;
-        if (typeof content === 'string') {
-          receivedText += content;
-        }
+        const event = JSON.parse(line.slice(5).trim());
+        if (event.type === 'text') receivedText += event.text;
+        if (event.type === 'error') streamError = event;
       } catch {
         // Ignore malformed stream chunks; the final non-empty text check catches broken streams.
       }
     }
+  }
+
+  if (streamError) {
+    throw new Error(`API stream reported ${streamError.code} (request ${streamError.requestId})`);
   }
 
   if (!receivedText.trim()) {
@@ -78,8 +77,9 @@ try {
       {
         ok: true,
         endpoint,
-        elapsedMs,
+        elapsedMs: Date.now() - startedAt,
         requestId,
+        remainingToday: response.headers.get('x-ratelimit-remaining'),
         sample: receivedText.trim().slice(0, 160),
       },
       null,

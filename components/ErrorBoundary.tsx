@@ -1,4 +1,5 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ContextType, ErrorInfo, ReactNode } from 'react';
+import { I18nContext } from '../i18n/context';
 
 interface Props {
   children?: ReactNode;
@@ -11,6 +12,9 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  static contextType = I18nContext;
+  declare context: ContextType<typeof I18nContext>;
+
   public state: State = {
     hasError: false
   };
@@ -25,20 +29,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const { t } = this.context;
       if (this.props.fallback) {
         return this.props.fallback;
       }
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-[#07080C] text-[#D4AF37] p-6 text-center">
-          <h2 className="text-2xl font-bold mb-4">عذراً، حدث خطأ غير متوقع</h2>
-          <p className="mb-6 opacity-80 max-w-md">
-            يبدو أن هناك مشكلة في تحميل هذه الصفحة. الرجاء إعادة تحديث الصفحة أو المحاولة لاحقاً.
+        <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-6 text-center text-text">
+          <h2 className="mb-3 text-[1.5rem] font-bold">{t.errorBoundary.title}</h2>
+          <p className="mb-6 max-w-md text-[1rem] leading-relaxed text-muted">
+            {t.errorBoundary.message}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-[#D4AF37] text-[#07080C] rounded-lg font-bold hover:bg-[#F2D16B] transition-colors"
+            className="h-10 rounded-full bg-gold px-6 text-[0.95rem] font-semibold text-[#17160f] transition-transform hover:scale-[1.03]"
           >
-            تحديث الصفحة
+            {t.errorBoundary.reload}
           </button>
         </div>
       );
