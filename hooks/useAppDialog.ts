@@ -1,11 +1,22 @@
 import { useState, useCallback } from 'react';
 
-export type DialogType = 'rename' | 'feedback' | 'alert' | 'confirm' | 'clearAll';
+/** `proceed` asks before something that costs credits; unlike `confirm` it is not destructive. */
+export type DialogType = 'rename' | 'feedback' | 'alert' | 'confirm' | 'clearAll' | 'proceed';
+
+export interface DialogPreview {
+  title: string;
+  detail?: string;
+  imageUrl?: string;
+}
 
 export interface DialogOptions {
   type: DialogType;
   title: string;
   message?: string;
+  /** Shown in a highlighted box above the message. */
+  warning?: string;
+  /** A small card for what the dialog is about, e.g. a video's thumbnail and title. */
+  preview?: DialogPreview;
   defaultValue?: string;
   confirmText?: string;
   cancelText?: string;

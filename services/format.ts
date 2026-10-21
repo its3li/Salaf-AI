@@ -23,3 +23,12 @@ export const formatTime = (date: Date, language: Language) =>
 /** Rewrites Latin digits inside text (hadith numbers, page references) in the language's digits. */
 export const localizeDigits = (text: string, language: Language) =>
   text.replace(/[0-9]/g, (digit) => DIGITS[language][Number(digit)]);
+
+/** "1:23:54" or "4:05" for a length in seconds, in Latin digits (pair with localizeDigits to show it). */
+export const formatClock = (totalSeconds: number) => {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = String(seconds % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+};

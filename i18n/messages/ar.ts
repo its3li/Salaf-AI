@@ -4,6 +4,12 @@ const creditCount = (count: number, n: string) => {
   return count >= 3 && count <= 10 ? `${n} نقاط` : `${n} نقطة`;
 };
 
+const minuteCount = (count: number, n: string) => {
+  if (count === 1) return 'دقيقة واحدة';
+  if (count === 2) return 'دقيقتان';
+  return count >= 3 && count <= 10 ? `${n} دقائق` : `${n} دقيقة`;
+};
+
 export const ar = {
   appName: 'باحث السلف',
   /** The browser tab title. */
@@ -73,7 +79,7 @@ export const ar = {
     placeholderLimit: (time: string) => `انتهى رصيد اليوم، يتجدد الساعة ${time}`,
     attach: 'إرفاق',
     attachLabel: 'إرفاق ملف',
-    attachTitle: 'إرفاق صورة أو ملف PDF',
+    attachTitle: 'إرفاق صورة أو ملف PDF أو مقطع صوتي أو مرئي',
     stop: 'إيقاف',
     stopLabel: 'إيقاف الرد',
     send: 'إرسال',
@@ -92,11 +98,49 @@ export const ar = {
     pdfTooLarge: (mb: string) => `حجم ملف PDF يجب ألا يتجاوز ${mb} ميجابايت.`,
     imageTooLarge: (mb: string) => `حجم الصورة يجب ألا يتجاوز ${mb} ميجابايت.`,
     imageUnreadable: 'تعذرت قراءة الصورة. جرّب صورة بصيغة JPG أو PNG.',
-    unsupported: 'يمكنك إرفاق صورة أو ملف PDF فقط.',
+    unsupported: 'يمكنك إرفاق صورة أو ملف PDF أو مقطع صوتي أو مرئي.',
     pdfNoText: 'لم يُعثر على نص قابل للقراءة في الملف، وقد يكون صوراً ممسوحة ضوئياً.',
     pdfExtractFailed: 'تعذر استخراج النص من ملف PDF.',
     /** Sent to the assistant when a file arrives without a question. */
     defaultPrompt: 'استخرج ما يفيد من محتوى هذا الملف.',
+  },
+
+  media: {
+    warning:
+      'تنبيه: الذكاء الاصطناعي لا يشاهد المقطع ولا يسمعه؛ يُحوَّل كلام المقطع إلى نصّ مكتوب، ويقرأ هذا النصّ فقط. لن يعرف ما يظهر في الصورة ولا نبرة الصوت.',
+    titleYoutube: 'إضافة مقطع من يوتيوب',
+    titleFile: 'إضافة مقطع صوتي أو مرئي',
+    cost: (credits: number, creditsText: string, minutes: number, minutesText: string, left: number, leftText: string) =>
+      `يستهلك ${creditCount(credits, creditsText)} و${minuteCount(minutes, minutesText)} من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
+    costUnknown: (left: number, leftText: string) =>
+      `تعذّر معرفة طول المقطع، فسيُحتسب بطوله الفعلي من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
+    overAllowance: 'المقطع أطول من المتبقي لك اليوم، وسيُحوَّل كاملاً، ثم لا يمكن إضافة مقاطع أخرى حتى يتجدد الرصيد.',
+    continue: 'متابعة',
+    checking: 'جارٍ فحص الرابط…',
+    uploading: (percent: string) => `جارٍ رفع الملف… ${percent}٪`,
+    preparing: 'جارٍ تجهيز الصوت…',
+    transcribing: 'جارٍ تحويل الكلام إلى نص…',
+    ready: 'النص جاهز',
+    queued: 'ستُرسل رسالتك تلقائياً حين يجهز النص.',
+    remove: 'إزالة المقطع',
+    kinds: { youtube: 'يوتيوب', audio: 'مقطع صوتي', video: 'مقطع مرئي' },
+    showTranscript: 'عرض النص المكتوب',
+    hideTranscript: 'إخفاء النص',
+    approximateTimes: 'الأوقات تقريبية',
+    /** Sent to the assistant when a clip arrives without a question. */
+    defaultPrompt: 'لخّص ما جاء في هذا المقطع، واذكر أهم فوائده.',
+    openAt: (time: string) => `افتح المقطع عند ${time}`,
+    errors: {
+      dailyLimit: (time: string) => `استهلكت ساعة اليوم من المقاطع الصوتية والمرئية، وتتجدد الساعة ${time}.`,
+      credits: (time: string) => `رصيدك اليوم لا يكفي لهذا المقطع مع سؤالك عنه، ويتجدد الساعة ${time}.`,
+      siteLimit: 'بلغت الخدمة حدها اليومي من تحويل المقاطع. جرّب غداً إن شاء الله.',
+      tooLong: 'المقطع أطول من ثلاث ساعات، وهو أقصى طول مقبول.',
+      youtube: 'تعذّر استخدام هذا المقطع؛ قد يكون خاصاً أو محذوفاً أو بثاً مباشراً.',
+      failed: 'تعذّر تحويل كلام المقطع إلى نص، ولم يُخصم شيء من رصيدك. حاول مرة أخرى.',
+      unavailable: 'إضافة المقاطع الصوتية والمرئية غير متاحة الآن.',
+      upload: 'تعذّر رفع الملف. تحقق من الاتصال وحاول مرة أخرى.',
+      fileTooLarge: (mb: string) => `حجم المقطع يجب ألا يتجاوز ${mb} ميجابايت.`,
+    },
   },
 
   message: {
@@ -264,7 +308,10 @@ export const ar = {
     freeLine: 'مجاني بلا اشتراكات · خمسون نقطة كل يوم',
     howTitle: 'كيف يعمل؟',
     steps: [
-      { title: 'اسأل', text: 'اكتب سؤالك في العقيدة أو الفقه أو الحديث أو التفسير، أو أرفق صورة أو ملف PDF.' },
+      {
+        title: 'اسأل',
+        text: 'اكتب سؤالك في العقيدة أو الفقه أو الحديث أو التفسير، أو أرفق صورة أو ملف PDF أو مقطعاً صوتياً أو مرئياً، أو ضع رابط مقطع من يوتيوب.',
+      },
       {
         title: 'يتحقق',
         text: 'إذا لم يكن على يقين من حديث بحث عنه في الدرر السنية بلفظه ورقمه وحكم المحدّثين، وإذا نقل عن عالم ما لم يتيقنه قرأه من موقعه أولًا.',
@@ -294,6 +341,11 @@ export const ar = {
         question: 'هل هو مجاني؟',
         answer:
           'نعم، بلا اشتراك ولا حساب. لكل مستخدم خمسون نقطة في اليوم، والسؤال بنقطة واحدة، ويتجدد الرصيد كل يوم حتى تبقى الخدمة متاحة للجميع.',
+      },
+      {
+        question: 'هل يفهم مقاطع يوتيوب والملفات الصوتية والمرئية؟',
+        answer:
+          'نعم، يُحوَّل كلام المقطع إلى نص مكتوب ثم يقرؤه، فلا يرى الصورة ولا يسمع نبرة الصوت. لكل مستخدم ساعة من المقاطع في اليوم، وكل ست دقائق منها بنقطة. يُرسل الصوت لتحويله إلى نص إلى خدمة AssemblyAI، أو إلى Microsoft عبر Pollinations إن تعذّرت، والملفات التي ترفعها تُحذف فور انتهاء التحويل.',
       },
       {
         question: 'أين تُحفظ محادثاتي؟',

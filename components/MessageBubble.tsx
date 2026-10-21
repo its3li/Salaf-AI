@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Check, Copy, RotateCw, ThumbsDown, X } from 'lucide-react';
+import { AudioLines, BookOpen, Check, ChevronDown, Clapperboard, Copy, RotateCw, ThumbsDown, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '../types';
+import { Attachment, Message } from '../types';
 import { hasFeedbackForMessage } from '../services/feedbackStorage';
-import { parseMessageSources } from '../services/messageParsing';
-import { formatTime, localizeDigits } from '../services/format';
+import { linkTimestamps, parseMessageSources } from '../services/messageParsing';
+import { formatClock, formatTime, localizeDigits } from '../services/format';
 import { useI18n } from '../i18n/context';
 import type { Language } from '../i18n/languages';
 
@@ -16,6 +16,8 @@ interface MessageBubbleProps {
   isNew?: boolean;
   onRetry?: (messageId: string) => void;
   onFeedback?: (messageId: string) => Promise<boolean>;
+  /** The YouTube video this answer is about; its "[12:34]" times become links to that moment. */
+  videoId?: string;
 }
 
 interface MarkdownProps {
@@ -80,12 +82,76 @@ const IconButton: React.FC<
   </button>
 );
 
+/** A shared YouTube video or audio/video file, with the transcript the assistant read. */
+const MediaCard: React.FC<{ attachment: Attachment }> = ({ attachment }) => {
+  const { t, language } = useI18n();
+  const [isOpen, setIsOpen] = useState(false);
+  const media = attachment.media;
+  if (!media) return null;
+
+  const detail = [t.media.kinds[media.kind], localizeDigits(formatClock(media.durationSec), language), media.channel]
+    .filter(Boolean)
+    .join(' · ');
+  const title = <span className="line-clamp-2 text-[0.95rem] font-medium leading-snug" dir="auto">{media.title}</span>;
+
+  return (
+    <div data-testid="media-card" className="mb-2 overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="flex items-center gap-3 p-2.5">
+        {attachment.thumbnailUrl ? (
+          <img src={attachment.thumbnailUrl} alt="" className="h-14 w-24 shrink-0 rounded-xl object-cover" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-gold-text">
+            {media.kind === 'audio' ? (
+              <AudioLines size={20} strokeWidth={1.9} aria-hidden="true" />
+            ) : (
+              <Clapperboard size={20} strokeWidth={1.9} aria-hidden="true" />
+            )}
+          </span>
+        )}
+        <span className="min-w-0">
+          {media.videoId ? (
+            <a
+              href={`https://www.youtube.com/watch?v=${media.videoId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {title}
+            </a>
+          ) : (
+            title
+          )}
+          <span className="mt-0.5 block truncate text-[0.8rem] text-faint">{detail}</span>
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-2 border-t border-line px-3.5 py-2 text-[0.85rem] text-muted transition-colors hover:bg-surface-2 hover:text-text"
+      >
+        {isOpen ? t.media.hideTranscript : t.media.showTranscript}
+        <ChevronDown size={15} strokeWidth={2} aria-hidden="true" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="max-h-72 overflow-y-auto border-t border-line px-3.5 py-3">
+          {media.approximateTimes && <p className="mb-2 text-[0.8rem] text-faint">{t.media.approximateTimes}</p>}
+          <p dir="auto" className="whitespace-pre-wrap text-[0.88rem] leading-relaxed text-muted">
+            {localizeDigits(media.transcript, language)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   canRetry = false,
   isNew = false,
   onRetry,
   onFeedback,
+  videoId,
 }) => {
   const { t, language } = useI18n();
   const localDigits = (text: string) => localizeDigits(text, language);
@@ -142,12 +208,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // Turn the prompt's HTML tags into fenced blocks the `pre` renderer below can style.
   const processedText = useMemo(
     () =>
-      displayContent
+      (videoId ? linkTimestamps(displayContent, videoId) : displayContent)
         .replace(/<p class="quran">([\s\S]*?)<\/p>/g, '\n```quran\n$1\n```\n')
         .replace(/<p class="hadith">([\s\S]*?)<\/p>/g, (_, content) => `\n\`\`\`hadith\n${content}\n\`\`\`\n`)
         // A tag left open (an interrupted answer) styles the rest as that block instead of raw HTML.
         .replace(/<p class="(quran|hadith)">([\s\S]*)$/, '\n```$1\n$2\n```\n'),
-    [displayContent]
+    [displayContent, videoId]
   );
 
   const components = {
@@ -255,7 +321,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return (
       <article aria-label="User message" className="mb-8 flex justify-start slide-in">
         <div className="max-w-[85%] md:max-w-[75%]">
-          {message.attachment && (
+          {message.attachment?.media ? (
+            <MediaCard attachment={message.attachment} />
+          ) : message.attachment && (
             <div className="mb-2 overflow-hidden rounded-2xl border border-line">
               {message.attachment.mimeType.startsWith('image/') ? (
                 <img src={message.attachment.data} alt={t.message.attachedImage} className="max-h-72 w-full object-cover" />

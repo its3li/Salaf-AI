@@ -46,6 +46,18 @@ const isValidAttachment = (value: unknown): value is Attachment => {
   if (!isRecord(value)) return false;
   if (typeof value.name !== 'string' || typeof value.mimeType !== 'string') return false;
   if (typeof value.data !== 'string') return false;
+  if (value.media !== undefined) {
+    // The server checks the signature again whenever the transcript is sent, so shape is enough here.
+    const media = value.media;
+    return (
+      isRecord(media) &&
+      ['youtube', 'audio', 'video'].includes(media.kind as string) &&
+      typeof media.title === 'string' &&
+      typeof media.durationSec === 'number' &&
+      typeof media.transcript === 'string' &&
+      typeof media.signature === 'string'
+    );
+  }
   if (value.mimeType === 'application/pdf') return true;
   return value.mimeType.startsWith('image/') && value.data.startsWith('data:image/');
 };
@@ -151,9 +163,12 @@ const getChatErrorMessage = (error: unknown, t: Messages, language: Language) =>
   return t.errors.unknown;
 };
 
+const shorten = (text: string) => (text.length > 30 ? `${text.substring(0, 30)}...` : text);
+
 const getChatTitle = (chat: ChatSession, text: string, t: Messages, attachment?: Attachment) => {
   if (chat.messages.length > 0) return chat.title;
-  if (text.trim().length > 0) return text.length > 30 ? `${text.substring(0, 30)}...` : text;
+  if (text.trim().length > 0) return shorten(text);
+  if (attachment?.media) return shorten(attachment.media.title);
   if (attachment) return t.chats.fileTitle(attachment.name);
   return chat.title;
 };
@@ -597,6 +612,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     requestSteps,
     lastArrivedMessageId,
     quota,
+    updateQuota: setQuota,
     createNewChat,
     handleSendMessage,
     handleRetryMessage,

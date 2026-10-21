@@ -27,3 +27,15 @@ export const parseMessageSources = (text: string) => {
     sourcesList,
   };
 };
+
+// "[12:34]" or "[1:02:15]" not already followed by a link target.
+const TIMESTAMP = /\[((?:\d{1,2}:)?\d{1,2}:\d{2})\](?!\()/g;
+
+/** Turns the transcript times an answer cites into markdown links that open the video at that moment. */
+export const linkTimestamps = (text: string, videoId: string) =>
+  text.replace(TIMESTAMP, (whole, clock: string) => {
+    const parts = clock.split(':').map(Number);
+    if (parts.slice(1).some((part) => part > 59)) return whole;
+    const seconds = parts.reduce((total, part) => total * 60 + part, 0);
+    return `[${clock}](https://www.youtube.com/watch?v=${videoId}&t=${seconds}s)`;
+  });

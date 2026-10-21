@@ -67,6 +67,36 @@ describe('buildApiMessages', () => {
   });
 });
 
+describe('buildApiMessages with audio and video', () => {
+  const media = {
+    kind: 'youtube' as const,
+    title: 'شرح الأصول الثلاثة',
+    videoId: 'Hp5duraTH_U',
+    durationSec: 5034,
+    transcript: '[0:00] بسم الله',
+    signature: 'sig',
+  };
+  const videoAttachment = { name: media.title, mimeType: 'video/youtube', data: '', media };
+
+  it('sends the signed transcript with the message, and a default question when there is none', async () => {
+    const [apiMessage] = await buildApiMessages([message({ attachment: videoAttachment })], '', videoAttachment);
+    expect(apiMessage.media).toEqual(media);
+    expect(apiMessage.text).toBe('لخّص ما جاء في هذا المقطع، واذكر أهم فوائده.');
+  });
+
+  it('keeps the latest video in the conversation after it scrolls out of the history window', async () => {
+    const history = [
+      message({ text: 'ما رأيك؟', attachment: videoAttachment }),
+      ...Array.from({ length: 12 }, (_, i) => message({ role: i % 2 ? 'user' : 'model', text: `رسالة ${i}` })),
+      message({ text: 'وماذا قال بعد ذلك؟' }),
+    ];
+    const apiMessages = await buildApiMessages(history, 'وماذا قال بعد ذلك؟');
+    expect(apiMessages[0]).toMatchObject({ role: 'user', text: 'ما رأيك؟', media });
+    expect(apiMessages.filter((m) => m.media)).toHaveLength(1);
+    expect(apiMessages.at(-1)).toEqual({ role: 'user', text: 'وماذا قال بعد ذلك؟' });
+  });
+});
+
 describe('streamChatReply', () => {
   it('assembles streamed text and stores the quota from response headers', async () => {
     vi.stubGlobal(

@@ -1,4 +1,4 @@
-import { Message, Attachment } from '../types';
+import { Message, Attachment, MediaTranscript } from '../types';
 import { compressImageDataUrl } from './attachments';
 import { formatTime } from './format';
 import { DEFAULT_LANGUAGE, type Language } from '../i18n/languages';
@@ -10,6 +10,8 @@ interface ApiMessage {
   role: 'user' | 'assistant';
   text: string;
   image?: string;
+  /** Sent back exactly as /api/media signed it. */
+  media?: MediaTranscript;
 }
 
 type StreamEvent =
@@ -73,8 +75,8 @@ export class ChatServiceError extends Error {
   }
 }
 
-/** Anonymous per-browser id used only to count the daily message limit. */
-const getClientId = () => {
+/** Anonymous per-browser id used only to count the daily credits. */
+export const getClientId = () => {
   try {
     const existing = localStorage.getItem(CLIENT_ID_KEY);
     if (existing) return existing;
@@ -170,6 +172,7 @@ const getMessageText = (
   language: Language
 ) => {
   const { text, attachment } = message;
+  if (attachment?.media) return text.trim() || MESSAGES[language].media.defaultPrompt;
   if (attachment?.mimeType === 'application/pdf') return buildPdfPrompt(text, attachment, language);
   if (attachment && !isCurrentTurn) {
     return `${text}\n\n[Earlier in the conversation the user attached an image: ${attachment.name}]`.trim();
@@ -184,21 +187,26 @@ export const buildApiMessages = async (
   language: Language = DEFAULT_LANGUAGE
 ): Promise<ApiMessage[]> => {
   // The last message in history is the user message being answered now.
-  const previousMessages = history
-    .slice(0, -1)
-    .filter((message) => !message.isError)
-    .slice(-MAX_HISTORY_MESSAGES);
+  const usableMessages = history.slice(0, -1).filter((message) => !message.isError);
+  let previousMessages = usableMessages.slice(-MAX_HISTORY_MESSAGES);
+  // Follow-up questions about a video still need its transcript after it scrolls out of the window.
+  const latestMedia = [...usableMessages].reverse().find((message) => message.attachment?.media);
+  if (latestMedia && !previousMessages.includes(latestMedia) && !attachment?.media) {
+    previousMessages = [latestMedia, ...previousMessages];
+  }
 
   const apiMessages: ApiMessage[] = previousMessages
     .map((message) => ({
       role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
       text: getMessageText(message, false, language).slice(0, MAX_MESSAGE_CHARS),
+      ...(message.role === 'user' && message.attachment?.media && { media: message.attachment.media }),
     }))
     .filter((message) => message.text.trim().length > 0);
 
   const currentMessage: ApiMessage = {
     role: 'user',
     text: getMessageText({ text, attachment }, true, language).slice(0, MAX_MESSAGE_CHARS),
+    ...(attachment?.media && { media: attachment.media }),
   };
   if (attachment?.mimeType.startsWith('image/') && attachment.data) {
     // Attachments are compressed when picked; this only matters for images saved by older versions.

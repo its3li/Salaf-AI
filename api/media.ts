@@ -413,7 +413,7 @@ const runFallback = async (job: Job): Promise<Job> => {
 /** Moves a job one step forward. Every paid or final step runs under a lock, at most once. */
 const advanceJob = async (job: Job): Promise<Job> => {
     if (job.stage === 'audio') {
-        let audioUrl: string | null = null;
+        let audioUrl: string | null;
         try {
             if (job.paxTaskUrl && Date.now() - (job.paxStartedAt ?? job.createdAt) < PAXSENIX_TIMEOUT_MS) {
                 audioUrl = await checkYoutubeAudio(job.paxTaskUrl);
@@ -530,7 +530,11 @@ const isOurBlobUrl = (raw: unknown): raw is string => {
 };
 
 const cleanFileName = (raw: unknown) =>
-    (typeof raw === 'string' ? raw : '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 200) || 'audio';
+    Array.from(typeof raw === 'string' ? raw : '')
+        .filter((char) => char.charCodeAt(0) >= 32)
+        .join('')
+        .trim()
+        .slice(0, 200) || 'audio';
 
 const handleStart = async (req: VercelRequest, res: VercelResponse) => {
     const body = req.body ?? {};

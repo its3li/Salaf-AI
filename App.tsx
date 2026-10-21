@@ -51,6 +51,7 @@ const App: React.FC = () => {
     requestSteps,
     lastArrivedMessageId,
     quota,
+    updateQuota,
     createNewChat,
     handleSendMessage,
     handleRetryMessage,
@@ -65,6 +66,16 @@ const App: React.FC = () => {
   } = useChats(showDialog);
   const isActiveChatLoading = activeChatId !== null && loadingChatIds.includes(activeChatId);
   const hasMessages = currentMessages.length > 0;
+  // Each answer links its times to the YouTube video most recently shared before it in the chat.
+  const videoIdByMessage = useMemo(() => {
+    const map = new Map<string, string>();
+    let videoId: string | undefined;
+    for (const message of currentMessages) {
+      if (message.role === 'user' && message.attachment?.media?.videoId) videoId = message.attachment.media.videoId;
+      else if (message.role === 'model' && videoId) map.set(message.id, videoId);
+    }
+    return map;
+  }, [currentMessages]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -150,6 +161,8 @@ const App: React.FC = () => {
       input={inputText}
       setInput={setInputText}
       quota={quota}
+      onQuota={updateQuota}
+      showDialog={showDialog}
     />
   );
 
@@ -234,6 +247,7 @@ const App: React.FC = () => {
                       <div key={msg.id} data-message-id={msg.id} className="scroll-mt-20">
                         <MessageBubble
                           message={msg}
+                          videoId={videoIdByMessage.get(msg.id)}
                           isNew={msg.id === lastArrivedMessageId}
                           canRetry={retryableErrorMessageId === msg.id}
                           onRetry={(messageId) => void handleRetryMessage(messageId)}

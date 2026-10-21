@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { AudioLines } from 'lucide-react';
 import { DialogOptions } from '../hooks/useAppDialog';
 import { useI18n } from '../i18n/context';
 
@@ -82,7 +83,40 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
             <h3 id="app-dialog-title" className="mb-2 text-[1.25rem] font-bold">
               {options.title}
             </h3>
-            
+
+            {options.preview && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5" data-testid="dialog-preview">
+                {options.preview.imageUrl ? (
+                  <img
+                    src={options.preview.imageUrl}
+                    alt=""
+                    className="h-14 w-24 shrink-0 rounded-xl object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-surface-3 text-gold-text">
+                    <AudioLines size={22} strokeWidth={1.9} aria-hidden="true" />
+                  </span>
+                )}
+                <span className="min-w-0">
+                  <span className="line-clamp-2 text-[0.95rem] font-medium leading-snug">{options.preview.title}</span>
+                  {options.preview.detail && (
+                    <span className="mt-0.5 block truncate text-[0.82rem] text-faint">{options.preview.detail}</span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {options.warning && (
+              <p
+                role="note"
+                data-testid="dialog-warning"
+                className="mb-4 rounded-2xl border border-gold/30 bg-gold-soft px-4 py-3 text-[0.95rem] leading-relaxed text-gold-text"
+              >
+                {options.warning}
+              </p>
+            )}
+
             {options.message && (
               <p className="mb-6 whitespace-pre-line text-[0.98rem] leading-relaxed text-muted">
                 {options.message}

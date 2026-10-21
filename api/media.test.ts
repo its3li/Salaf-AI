@@ -7,6 +7,7 @@ import { verifyTranscript } from './_lib/media';
 
 interface MockResponse extends Partial<VercelResponse> {
   statusCode: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each test reads the fields it expects
   jsonBody: any;
 }
 

@@ -102,3 +102,46 @@ describe('MessageBubble guardrails', () => {
     expect(handleFeedback).toHaveBeenCalledWith('message-1');
   });
 });
+
+describe('MessageBubble with audio and video', () => {
+  it('shows the shared video and its transcript on request', () => {
+    render(
+      <MessageBubble
+        message={{
+          ...baseMessage,
+          role: 'user',
+          text: 'لخّص المقطع',
+          attachment: {
+            name: 'شرح الأصول الثلاثة',
+            mimeType: 'video/youtube',
+            data: '',
+            media: {
+              kind: 'youtube',
+              title: 'شرح الأصول الثلاثة',
+              channel: 'قناة الدروس',
+              videoId: 'Hp5duraTH_U',
+              durationSec: 5034,
+              transcript: '[50:52] ومن يبتغ غير الإسلام دينا',
+              signature: 'sig',
+            },
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('media-card').textContent).toContain('١:٢٣:٥٤');
+    expect(screen.getByRole('link', { name: 'شرح الأصول الثلاثة' }).getAttribute('href')).toBe(
+      'https://www.youtube.com/watch?v=Hp5duraTH_U'
+    );
+    expect(screen.queryByText(/ومن يبتغ/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'عرض النص المكتوب' }));
+    expect(screen.getByText(/ومن يبتغ غير الإسلام دينا/).textContent).toContain('[٥٠:٥٢]');
+  });
+
+  it('links the times an answer cites to that moment of the video', () => {
+    render(<MessageBubble message={{ ...baseMessage, text: 'ذكر ذلك عند [50:52].' }} videoId="Hp5duraTH_U" />);
+    expect(screen.getByRole('link', { name: '٥٠:٥٢' }).getAttribute('href')).toBe(
+      'https://www.youtube.com/watch?v=Hp5duraTH_U&t=3052s'
+    );
+  });
+});

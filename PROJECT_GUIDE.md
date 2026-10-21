@@ -99,23 +99,46 @@ Files under `api/_lib` are helpers, not their own endpoints.
 ### `api/feedback.ts`
 Receives "الإجابة غير دقيقة؟" reports (reason, question, answer) and posts them to the Discord webhook in `FEEDBACK_WEBHOOK_URL`, if set. It now allows at most 5 reports per IP every 10 minutes, per instance. Reports are also kept in the reporter's own browser.
 
+### `api/media.ts`: YouTube links and audio/video files
+Claude can't watch or hear, so the speech is turned into a timestamped transcript (`[50:52] …` lines) and Claude reads that. The browser drives it with short POST requests:
+
+| Action | What it does | Charges |
+| --- | --- | --- |
+| `inspect` `{url}` | Title, channel and thumbnail (YouTube oEmbed), length (the watch page, PaxSenix search as backup), cost and what the user has left | Nothing |
+| `allowance` | Credits and audio/video seconds left today | Nothing |
+| Blob handshake (body `type: blob.*`) | Lets the browser upload a file straight to Vercel Blob (functions cap request bodies at 4.5 MB). Audio/video only, up to 200 MB | Nothing |
+| `start` `{url}` or `{blobUrl, durationSec, name}` | Charges credits and seconds, then asks PaxSenix for the YouTube audio or sends the uploaded file to AssemblyAI | Yes |
+| `status` `{jobId}` | Moves the job one step: audio ready → AssemblyAI → transcript. Polled every 3 s | No |
+
+- **Providers:** AssemblyAI `universal-3-5-pro` (with `universal-2` for languages it doesn't cover, language detected automatically) reads the audio straight from a link, so audio never passes through our functions. If AssemblyAI fails (error, out of balance, or no result after 8 minutes), Microsoft MAI Transcribe 2 through Pollinations takes over: the function downloads the audio and uploads it there. Its times are spread evenly within coarse segments, so they're marked as estimates. If both fail, the charge is refunded.
+- **YouTube audio:** PaxSenix `/dl/ytmp3` (a job), then `/yt/ytaudio` if that fails or takes over 3 minutes. Its links expire after about an hour, so they're fetched right before use and never stored.
+- **Safety:** job state lives in Redis, and every paid step (submitting to AssemblyAI, the backup, finishing) takes a one-time lock, so a replayed or overlapping request can't start the same transcription twice. Finished transcripts are signed with `MEDIA_SIGNING_SECRET` (HMAC); `/api/chat` only accepts signed ones, so nobody can pass arbitrary text off as a transcript to get around the 32k-character text limit. **Don't change the secret**: transcripts in existing chats would stop being accepted.
+- **Cache:** AssemblyAI transcripts of YouTube videos are kept in Redis for 30 days, so a popular lecture is paid for once. The user is still charged credits and minutes.
+- **Uploads** are deleted from Blob as soon as the transcript is done or has failed.
+- In chat, the transcript goes to Claude with a header (title, channel, link, length) inside `<transcript>` tags, with instructions that it can't see or hear the media, that the text may be mis-heard, to cite times as `[mm:ss]`, and to ignore instructions spoken in it. The answer's times become links to that moment of the video.
+- **Logs:** `[api/media] transcript ready` (provider, seconds, credits, elapsed time), `[api/media] job failed`, and warnings when a provider falls back.
+
 ---
 
 ## 4. Usage limits
 
+Usage is counted in **credits** (نقاط): a message costs 1, and audio or video costs 1 per started 6 minutes (10 an hour). The counting lives in `api/_lib/limits.ts`, shared by `/api/chat` and `/api/media`.
+
 | Limit | Default | Env var | Scope |
 | --- | --- | --- | --- |
-| Daily questions per user | **30** | `DAILY_MESSAGE_LIMIT` (`0` = off) | Device id; resets at 00:00 UTC (03:00 in Saudi Arabia) |
-| Daily ceiling per network | 300 | `IP_DAILY_MESSAGE_LIMIT` | IP address, so clearing browser data or faking device ids can't get around the limit. Mobile carriers can put many users behind one IP, so raise it if a carrier's users get locked out together |
+| Daily credits per user | **50** | `DAILY_CREDIT_LIMIT` (`0` = off; the old `DAILY_MESSAGE_LIMIT` still works) | Device id; resets at 00:00 UTC (03:00 in Saudi Arabia) |
+| Daily credit ceiling per network | 500 | `IP_DAILY_CREDIT_LIMIT` | IP address, so clearing browser data or faking device ids can't get around the limit. Mobile carriers can put many users behind one IP, so raise it if a carrier's users get locked out together |
+| Daily audio/video per user | **1 hour** | `MEDIA_DAILY_SECONDS` (3600) | Device id. An item may start while any of the hour is left, and then counts in full |
+| Daily audio/video per network | 3 hours | `MEDIA_IP_DAILY_SECONDS` | IP address |
+| Audio/video for the whole site | **10 hours** | `MEDIA_SITE_DAILY_SECONDS` (36000) | Everyone together; caps transcription spend |
+| Longest single item | 3 hours | `MEDIA_MAX_SECONDS` | Per item |
 | Burst | 10 per minute | `CHAT_RATE_LIMIT_MAX`, `CHAT_RATE_LIMIT_WINDOW_MS` | IP address |
 
-**Why 30:** a student asking real questions rarely needs more than 10 to 20 a day. Thirty leaves room for follow-ups while stopping scripts and abuse from loading the provider. Change it with one env var and redeploy; no code change needed.
+**Fairness:** a message only counts if the user received at least part of an answer. Provider errors, timeouts, and refusals before any text are refunded. Audio/video is charged when the user presses Continue (that's when transcription is paid for), settled to the real length afterwards, and refunded in full if both transcription providers fail. Starting audio/video also needs one credit left over for the question that goes with it.
 
-**Fairness:** a question only counts if the user received at least part of an answer. Provider errors, timeouts, and refusals before any text are refunded.
+**What users see:** nothing until 10 or fewer credits remain. Then a quiet line under the input reads «متبقٍ لك اليوم ٥ نقاط». At zero, the input locks with «انتهى رصيد اليوم، يتجدد الساعة ٣:٠٠ ص» and unlocks by itself at reset time. Before any audio/video is charged, a popup shows what it is, a warning that the AI only reads a transcript (it doesn't see or hear), and the cost in credits and minutes. There are no upgrade prompts, no subscriptions, and no donation pitch in the limit messages. The FAQ states the limits plainly.
 
-**What users see:** nothing until 10 or fewer questions remain. Then a quiet line under the input reads «متبقٍ لك اليوم ٥ أسئلة». At zero, the input locks with «انتهى رصيد اليوم، يتجدد الساعة ٣:٠٠ ص» and unlocks by itself at reset time. There are no upgrade prompts, no subscriptions, and no donation pitch in the limit message. The FAQ states the limit plainly.
-
-**Storage for counters (important):** without Redis, counters live in each serverless instance's memory, so the limit is only approximate (instances restart and run in parallel). For a limit that actually holds, add **Upstash for Redis** from the Vercel Marketplace (Project → Storage → Create Database → Upstash, free tier) and connect it to this project. It injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`, which the code picks up automatically. If Redis is ever unreachable, the code falls back to memory instead of blocking users.
+**Storage for counters (important):** without Redis, counters live in each serverless instance's memory, so the limits are only approximate (instances restart and run in parallel). Add **Upstash for Redis** from the Vercel Marketplace (Project → Storage → Create Database → Upstash, free tier) and connect it to this project. It injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`, which the code picks up automatically. If Redis is unreachable, chat falls back to memory instead of blocking users, but **audio/video refuses to run without Redis on Vercel**, because its limits protect real spending.
 
 ---
 
@@ -237,8 +260,9 @@ The app also has its own address now: `/chat`. The installed app opens straight 
    - `ANTHROPIC_BASE_URL` = `https://claude.c00l.site/v1`
    - `CHAT_MODEL` = `claude-opus-5-5`
    - Delete the old `GEMINI_API_KEY`.
-2. **Recommended:** Storage → Upstash for Redis → connect to this project (adds `KV_REST_API_*`).
-3. Optional: `DAILY_MESSAGE_LIMIT`, `FEEDBACK_WEBHOOK_URL` (see `.env.example`).
+2. **Required for audio/video, recommended for everything:** Storage → Upstash for Redis → connect to this project (adds `KV_REST_API_*`).
+3. **Audio/video:** `ASSEMBLYAI_API_KEY`, `POLLINATIONS_API_KEY` (the backup), `MEDIA_SIGNING_SECRET` (a long random string; never change it), and a **Vercel Blob** store connected to the project for uploads (adds `BLOB_READ_WRITE_TOKEN`). YouTube audio also needs `PAXSENIX_API_KEY`. Until all of these and Redis are in place, `/api/media` answers `MEDIA_UNAVAILABLE` and YouTube links are simply treated as text.
+4. Optional: `DAILY_CREDIT_LIMIT`, the `MEDIA_*` limits, `FEEDBACK_WEBHOOK_URL` (see `.env.example`).
 4. Push the branch. Vercel builds a Preview. Open it and ask one question, then check Logs for `[api/chat] completed`.
 5. Promote or merge to production. Env var changes only apply to new deployments, so redeploy after editing them.
 6. Optional check: `SALAF_API_URL=https://<preview-url>/api/chat npm run health:api`.
@@ -269,5 +293,6 @@ The app also has its own address now: `/chat`. The installed app opens straight 
 
 - **Rotate the keys** shared during setup (the Claude proxy key and both search keys) once you have permanent ones.
 - Web search and page reading go through PaxSenix and AquaDevs, so the search terms (derived from users' questions) pass through those services too.
-- `claude.c00l.site` is a third-party proxy. Every question (and image or PDF text) passes through it, so make sure you trust its operator. The privacy note in the app ("sent to the AI service") remains accurate.
+- `claude.c00l.site` is a third-party proxy. Every question (and image or PDF text, and transcripts) passes through it, so make sure you trust its operator.
+- Audio from YouTube links and uploaded files goes to AssemblyAI for transcription, or to Microsoft through Pollinations when AssemblyAI fails. YouTube audio is fetched through PaxSenix. Uploaded files sit in Vercel Blob under a random name only until their transcript is done, then are deleted. The About page FAQ says this in all three languages.
 - The API key is used only on the server. The browser never sees it.

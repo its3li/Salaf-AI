@@ -17,6 +17,32 @@ describe('normalizeImportedChats', () => {
     ).toBeNull();
   });
 
+  it('accepts conversations that include a transcribed video', () => {
+    const result = normalizeImportedChats([
+      {
+        id: 'chat-1',
+        title: 'Video chat',
+        createdAt: Date.now(),
+        messages: [
+          {
+            id: 'message-1',
+            role: 'user',
+            text: 'لخّص المقطع',
+            timestamp: Date.now(),
+            attachment: {
+              name: 'شرح',
+              mimeType: 'video/youtube',
+              data: '',
+              thumbnailUrl: 'https://i.ytimg.com/vi/Hp5duraTH_U/hqdefault.jpg',
+              media: { kind: 'youtube', title: 'شرح', videoId: 'Hp5duraTH_U', durationSec: 60, transcript: '[0:00] نص', signature: 'sig' },
+            },
+          },
+        ],
+      },
+    ]);
+    expect(result?.[0].messages[0].attachment?.media?.transcript).toBe('[0:00] نص');
+  });
+
   it('normalizes valid backup timestamps', () => {
     const result = normalizeImportedChats([
       {
