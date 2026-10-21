@@ -220,7 +220,10 @@ const getYoutubeMeta = async (videoId: string): Promise<YoutubeMeta | null> => {
         durationSec: length.seconds,
         live: length.live,
     };
-    await store.setText(keys.meta(videoId), JSON.stringify(meta), META_TTL_SECONDS);
+    // A missing length may be a passing failure, so only complete details are remembered.
+    if (meta.durationSec !== null || meta.live) {
+        await store.setText(keys.meta(videoId), JSON.stringify(meta), META_TTL_SECONDS);
+    }
     return meta;
 };
 
