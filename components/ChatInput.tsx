@@ -15,8 +15,8 @@ import {
   startUpload,
   startYoutube,
   uploadMediaFile,
+  parseYoutubeId,
   waitForTranscript,
-  youtubeIdFromLink,
   type MediaAllowance,
   type MediaStage,
 } from '../services/media';
@@ -201,10 +201,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     kind: MediaKind,
     allowance: MediaAllowance,
     durationSec: number | null,
+    credits: number,
     preview: { title: string; detail?: string; imageUrl?: string }
   ) => {
     onQuota?.(allowance.quota);
-    const credits = mediaCreditCost(durationSec ?? 360);
     if (allowance.mediaRemainingSeconds <= 0) {
       throw new MediaServiceError('MEDIA_DAILY_LIMIT', { resetAt: allowance.quota.resetAt });
     }
@@ -253,12 +253,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setAttachmentError(null);
     setPendingMedia({ kind: 'youtube', title: link, durationSec: null, status: 'checking', startedAt: Date.now() });
     try {
-      const { video, ...allowance } = await inspectYoutube(link);
+      const { video, credits, ...allowance } = await inspectYoutube(link);
       setPendingMedia((current) => current && { ...current, title: video.title, thumbnailUrl: video.thumbnailUrl, durationSec: video.durationSec });
       const detail = [video.channel, video.durationSec ? localizeDigits(formatClock(video.durationSec), language) : '']
         .filter(Boolean)
         .join(' · ');
-      const confirmed = await confirmMedia('youtube', allowance, video.durationSec, {
+      // The server's price, which also covers videos whose length it couldn't read.
+      const confirmed = await confirmMedia('youtube', allowance, video.durationSec, credits, {
         title: video.title,
         detail,
         imageUrl: video.thumbnailUrl,
@@ -304,7 +305,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const detail = [t.media.kinds[kind], seconds ? localizeDigits(formatClock(seconds), language) : '']
         .filter(Boolean)
         .join(' · ');
-      const confirmed = await confirmMedia(kind, allowance, seconds, { title: file.name, detail });
+      // Same estimate as the server when the browser can't read the length: 128 kbit/s audio.
+      const credits = mediaCreditCost(seconds ?? Math.ceil(file.size / 16_000));
+      const confirmed = await confirmMedia(kind, allowance, seconds, credits, { title: file.name, detail });
       if (!confirmed) {
         setPendingMedia(null);
         return;
@@ -332,7 +335,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   useEffect(() => {
     if (!showDialog || pendingMedia || attachment || isLoading || isDisabled) return;
     const link = findYoutubeLink(input);
-    const videoId = link ? youtubeIdFromLink(link) : null;
+    const videoId = link ? parseYoutubeId(link) : null;
     if (!link || !videoId || offeredVideosRef.current.has(videoId)) return;
     const timer = window.setTimeout(() => {
       offeredVideosRef.current.add(videoId);

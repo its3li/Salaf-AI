@@ -111,7 +111,7 @@ export const ar = {
     titleYoutube: 'إضافة مقطع من يوتيوب',
     titleFile: 'إضافة مقطع صوتي أو مرئي',
     cost: (credits: number, creditsText: string, minutes: number, minutesText: string, left: number, leftText: string) =>
-      `يستهلك ${creditCount(credits, creditsText)} و${minuteCount(minutes, minutesText)} من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
+      `يُخصم لهذا المقطع ${creditCount(credits, creditsText)} و${minuteCount(minutes, minutesText)} من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
     costUnknown: (left: number, leftText: string) =>
       `تعذّر معرفة طول المقطع، فسيُحتسب بطوله الفعلي من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
     overAllowance: 'المقطع أطول من المتبقي لك اليوم، وسيُحوَّل كاملاً، ثم لا يمكن إضافة مقاطع أخرى حتى يتجدد الرصيد.',

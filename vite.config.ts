@@ -123,7 +123,8 @@ export default defineConfig(({ command, mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        // Registered by services/appUpdates.ts, which also decides when to switch to a new version.
+        injectRegister: false,
         manifestFilename: 'manifest.json',
         includeAssets: ['logo.png', 'favicon.ico', 'favicon.png', 'apple-touch-icon.png'],
         manifest: {

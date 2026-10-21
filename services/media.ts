@@ -2,6 +2,8 @@ import { upload } from '@vercel/blob/client';
 import type { MediaTranscript } from '../types';
 import { getClientId, type ChatQuota } from './chatService';
 
+export { findYoutubeLink, parseYoutubeId } from '../api/_lib/youtube';
+
 // Talks to /api/media: looks up YouTube links, uploads audio/video files straight to storage, starts a
 // transcription and waits for it. The server charges credits when a transcription starts.
 
@@ -49,16 +51,6 @@ export class MediaServiceError extends Error {
     this.name = 'MediaServiceError';
   }
 }
-
-const YOUTUBE_LINK =
-  /https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?[^\s]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)[A-Za-z0-9_-]{11}[^\s]*/i;
-
-/** The first YouTube video link in a piece of text, as written there. */
-export const findYoutubeLink = (text: string) => YOUTUBE_LINK.exec(text)?.[0] ?? null;
-
-/** The video id in a YouTube link (for remembering which links the user already declined). */
-export const youtubeIdFromLink = (link: string) =>
-  /(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([A-Za-z0-9_-]{11})/.exec(link)?.[1] ?? null;
 
 const callMedia = async <T>(body: Record<string, unknown>, signal?: AbortSignal): Promise<T> => {
   const clientId = getClientId();

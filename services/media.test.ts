@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { findYoutubeLink, mediaCreditCost, youtubeIdFromLink } from './media';
+import { findYoutubeLink, mediaCreditCost, parseYoutubeId } from './media';
 import { linkTimestamps } from './messageParsing';
 
 describe('YouTube links in a question', () => {
   it('finds the first video link and its id', () => {
     const text = 'ما رأيكم في هذا https://youtu.be/pTf3vYUIutk?si=x وهذا https://www.youtube.com/watch?v=Hp5duraTH_U';
     expect(findYoutubeLink(text)).toBe('https://youtu.be/pTf3vYUIutk?si=x');
-    expect(youtubeIdFromLink('https://www.youtube.com/watch?v=Hp5duraTH_U&t=60')).toBe('Hp5duraTH_U');
-    expect(youtubeIdFromLink('https://www.youtube.com/shorts/pTf3vYUIutk')).toBe('pTf3vYUIutk');
+    expect(parseYoutubeId('https://www.youtube.com/watch?v=Hp5duraTH_U&t=60')).toBe('Hp5duraTH_U');
+    expect(parseYoutubeId('https://www.youtube.com/shorts/pTf3vYUIutk')).toBe('pTf3vYUIutk');
   });
 
   it('ignores channels, playlists and other sites', () => {

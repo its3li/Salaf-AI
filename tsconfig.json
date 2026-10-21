@@ -33,6 +33,7 @@
     "types.ts",
     "App.tsx",
     "index.tsx",
+    "vite-env.d.ts",
     "vite.config.ts"
   ]
 }

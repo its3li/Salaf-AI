@@ -5,35 +5,9 @@ import {
   linesFromSegments,
   linesFromWords,
   parseClock,
-  parseYoutubeId,
   signTranscript,
   verifyTranscript,
 } from './media';
-
-describe('parseYoutubeId', () => {
-  it.each([
-    ['https://www.youtube.com/watch?v=Hp5duraTH_U', 'Hp5duraTH_U'],
-    ['https://youtube.com/watch?v=Hp5duraTH_U&t=120s', 'Hp5duraTH_U'],
-    ['https://m.youtube.com/watch?v=Hp5duraTH_U', 'Hp5duraTH_U'],
-    ['https://youtu.be/Hp5duraTH_U?si=abc', 'Hp5duraTH_U'],
-    ['https://www.youtube.com/shorts/pTf3vYUIutk', 'pTf3vYUIutk'],
-    ['https://www.youtube.com/live/pTf3vYUIutk?feature=share', 'pTf3vYUIutk'],
-    ['https://music.youtube.com/watch?v=pTf3vYUIutk', 'pTf3vYUIutk'],
-    ['  https://www.youtube.com/embed/pTf3vYUIutk  ', 'pTf3vYUIutk'],
-  ])('reads %s', (url, id) => {
-    expect(parseYoutubeId(url)).toBe(id);
-  });
-
-  it.each([
-    'https://www.youtube.com/watch?v=short',
-    'https://www.youtube.com/channel/UC123',
-    'https://evil.example/watch?v=Hp5duraTH_U',
-    'https://youtube.com.evil.example/watch?v=Hp5duraTH_U',
-    'not a link',
-  ])('rejects %s', (url) => {
-    expect(parseYoutubeId(url)).toBeNull();
-  });
-});
 
 describe('timestamps', () => {
   it('formats and parses clock times', () => {

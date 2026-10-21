@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+// The .js extension is required: Vercel runs these files as native ES modules without bundling.
+export { parseYoutubeId } from './youtube.js';
 
 // Shared by /api/media (which produces transcripts) and /api/chat (which only accepts transcripts this
 // server signed, so nobody can pass off arbitrary text as a "transcript" to get around the limits).
@@ -22,28 +24,6 @@ export const MAX_TRANSCRIPT_CHARS = 150_000;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export const getSigningSecret = () => process.env.MEDIA_SIGNING_SECRET?.trim() || null;
-
-/** Video id from any common YouTube link (watch, youtu.be, shorts, live, embed, music), or null. */
-export const parseYoutubeId = (raw: string): string | null => {
-    let url: URL;
-    try {
-        url = new URL(raw.trim());
-    } catch {
-        return null;
-    }
-    const host = url.hostname.toLowerCase().replace(/^(www|m|music)\./, '');
-    let id: string | null = null;
-    if (host === 'youtu.be') {
-        id = url.pathname.split('/')[1] ?? null;
-    } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-        if (url.pathname === '/watch') id = url.searchParams.get('v');
-        else {
-            const [, section, value] = url.pathname.split('/');
-            if (['shorts', 'live', 'embed', 'v'].includes(section)) id = value ?? null;
-        }
-    }
-    return id && YOUTUBE_ID.test(id) ? id : null;
-};
 
 /** "1:23:54" / "50:52" / "0:07" for a number of seconds. */
 export const formatTimestamp = (totalSeconds: number) => {

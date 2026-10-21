@@ -5,6 +5,7 @@ import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
 import { resolveInitialLanguage } from './i18n/languages';
 import { shouldPlayIntro } from './services/intro';
+import { watchForAppUpdates } from './services/appUpdates';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,6 +18,7 @@ document.documentElement.classList.add('js');
 if (shouldPlayIntro()) document.documentElement.classList.add('intro-playing');
 
 const root = ReactDOM.createRoot(rootElement);
+watchForAppUpdates();
 
 // Waits for the language only on a first visit (a quick country lookup), so the page never flips language.
 void resolveInitialLanguage().then((language) => {

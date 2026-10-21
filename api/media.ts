@@ -139,9 +139,32 @@ const fetchJson = async <T>(url: string, init: RequestInit, timeoutMs: number): 
 // ---------------------------------------------------------------------------
 
 const readYoutubeLength = async (videoId: string): Promise<{ seconds: number | null; live: boolean }> => {
+    // YouTube's own player API: it reports the length even when it refuses to play for a server,
+    // and isn't caught by the cookie-consent page European servers get on the watch page.
+    try {
+        const player = await fetchJson<{ videoDetails?: { lengthSeconds?: string; isLive?: boolean } }>(
+            'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+            {
+                method: 'POST',
+                headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    videoId,
+                    context: { client: { clientName: 'WEB', clientVersion: '2.20241010.00.00', hl: 'en' } },
+                }),
+            },
+            10_000
+        );
+        const seconds = Number(player.videoDetails?.lengthSeconds);
+        if (player.videoDetails?.isLive) return { seconds: null, live: true };
+        if (seconds > 0) return { seconds, live: false };
+    } catch (error) {
+        console.warn('[api/media] YouTube player lookup failed', { videoId, error: describeError(error) });
+    }
+
     try {
         const response = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
-            headers: BROWSER_HEADERS,
+            // Skips the consent page YouTube shows to European servers (Vercel runs this in Frankfurt).
+            headers: { ...BROWSER_HEADERS, Cookie: 'CONSENT=YES+cb; SOCS=CAI' },
             signal: AbortSignal.timeout(10_000),
         });
         const html = await response.text();
