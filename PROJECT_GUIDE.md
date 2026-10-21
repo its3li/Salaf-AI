@@ -115,7 +115,7 @@ Claude can't watch or hear, so the speech is turned into a timestamped transcrip
 - **Safety:** job state lives in Redis, and every paid step (submitting to AssemblyAI, the backup, finishing) takes a one-time lock, so a replayed or overlapping request can't start the same transcription twice. Finished transcripts are signed with `MEDIA_SIGNING_SECRET` (HMAC); `/api/chat` only accepts signed ones, so nobody can pass arbitrary text off as a transcript to get around the 32k-character text limit. **Don't change the secret**: transcripts in existing chats would stop being accepted.
 - **Cache:** AssemblyAI transcripts of YouTube videos are kept in Redis for 30 days, so a popular lecture is paid for once. The user is still charged credits and minutes.
 - **Uploads** are deleted from Blob as soon as the transcript is done or has failed.
-- In chat, the transcript goes to Claude with a header (title, channel, link, length) inside `<transcript>` tags, with instructions that it can't see or hear the media, that the text may be mis-heard, to cite times as `[mm:ss]`, and to ignore instructions spoken in it. The answer's times become links to that moment of the video.
+- In chat, the transcript goes to Claude with a header (title, channel, link, length) inside `<transcript>` tags, with instructions that it can't see or hear the media, that the text may be mis-heard, to give times only when the user asks where or when something was said (as `[mm:ss]`), and to ignore instructions spoken in it. Those times become links to that moment of the video.
 - **Logs:** `[api/media] transcript ready` (provider, seconds, credits, elapsed time), `[api/media] job failed`, and warnings when a provider falls back.
 
 ---
