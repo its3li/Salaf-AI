@@ -65,7 +65,8 @@ describe('/api/feedback handler', () => {
   });
 
   it('limits how much feedback one IP can send', async () => {
-    vi.stubGlobal('fetch', vi.fn());
+    process.env.FEEDBACK_WEBHOOK_URL = 'https://discord.com/api/webhooks/123456/test-token';
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 204 }))));
     const statuses: number[] = [];
 
     for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -80,16 +81,26 @@ describe('/api/feedback handler', () => {
     expect(statuses).toEqual([202, 202, 202, 202, 202, 429]);
   });
 
-  it('accepts valid feedback when Discord is not configured', async () => {
+  it('reports that feedback went nowhere when Discord is not configured', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const res = createMockResponse();
 
     await handler(createMockRequest({ body: validFeedback }), res as VercelResponse);
 
-    expect(res.statusCode).toBe(202);
-    expect(res.jsonBody).toEqual({ ok: true });
+    expect(res.statusCode).toBe(503);
+    expect(res.jsonBody).toEqual({ error: { code: 'FEEDBACK_NOT_CONFIGURED' } });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed delivery when Discord rejects the feedback', async () => {
+    process.env.FEEDBACK_WEBHOOK_URL = 'https://discord.com/api/webhooks/123456/test-token';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+    const res = createMockResponse();
+
+    await handler(createMockRequest({ body: validFeedback }), res as VercelResponse);
+
+    expect(res.statusCode).toBe(502);
   });
 
   it('posts accepted feedback to the configured Discord webhook', async () => {
@@ -137,7 +148,7 @@ describe('/api/feedback handler', () => {
 
     await handler(createMockRequest({ body: validFeedback }), res as VercelResponse);
 
-    expect(res.statusCode).toBe(202);
+    expect(res.statusCode).toBe(503);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

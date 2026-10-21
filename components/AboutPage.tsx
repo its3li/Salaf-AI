@@ -58,7 +58,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onStartChat, onInstallClic
 
       <main className="mx-auto max-w-5xl px-4">
         <section className="flex flex-col items-center py-16 text-center md:py-24">
-          <div className="logo-halo rise mb-8">
+          <div className="logo-halo rise mb-8" data-intro-target>
             <img src="/logo.png" alt="" width="104" height="104" className="h-[104px] w-[104px]" />
           </div>
           <h1 className="rise max-w-3xl text-[2.4rem] font-bold leading-[1.25] md:text-[3.6rem]" style={delay(90)}>

@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
 import { resolveInitialLanguage } from './i18n/languages';
+import { shouldPlayIntro } from './services/intro';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,6 +13,8 @@ if (!rootElement) {
 
 // Lets CSS hide entrance-animated content only when script is running to reveal it again.
 document.documentElement.classList.add('js');
+// Holds the page's own entrances until the opening intro hands over (see OpeningIntro).
+if (shouldPlayIntro()) document.documentElement.classList.add('intro-playing');
 
 const root = ReactDOM.createRoot(rootElement);
 

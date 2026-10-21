@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ResearchCard } from './components/ResearchCard';
 import { HomeHero } from './components/HomeHero';
 import { AboutPage } from './components/AboutPage';
+import { OpeningIntro } from './components/OpeningIntro';
 import { Sidebar } from './components/Sidebar';
 import { CustomDialog } from './components/CustomDialog';
 import { useChats } from './hooks/useChats';
@@ -27,6 +28,7 @@ const viewFromPath = (): ViewState =>
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(viewFromPath);
+  const [showIntro] = useState(() => document.documentElement.classList.contains('intro-playing'));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -162,6 +164,7 @@ const App: React.FC = () => {
         onCancel={handleCancel}
       />
       <Analytics />
+      {showIntro && <OpeningIntro />}
       <InstallPrompt onInstall={openInstallGuide} />
       <InstallGuide
         isOpen={isGuideOpen}

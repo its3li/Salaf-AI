@@ -17,7 +17,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ onPickQuestion, children }) 
   return (
     <div className="mx-auto flex w-full max-w-[44rem] flex-1 flex-col justify-center py-8">
       <div className="mb-8 flex flex-col items-center text-center">
-        <div className="logo-halo rise mb-6">
+        <div className="logo-halo rise mb-6" data-intro-target>
           <img src="/logo.png" alt="" width="76" height="76" className="h-[76px] w-[76px]" />
         </div>
         <h1 className="rise text-[1.85rem] font-bold leading-tight md:text-[2.25rem]" style={delay(80)}>

@@ -417,13 +417,23 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
 
     if (typeof reason !== 'string' || !reason.trim()) return false;
 
-    await submitMessageFeedback({
+    const feedback = await submitMessageFeedback({
       messageId,
       chatId: activeChat.id,
       reason: reason.trim(),
       question: previousUserMessage.text,
       answer: botMessage.text,
     });
+
+    if (!feedback.sentAt) {
+      showDialog({
+        type: 'alert',
+        title: t.dialogs.error,
+        message: t.dialogs.feedbackFailed,
+        confirmText: t.dialogs.ok,
+      });
+      return false;
+    }
 
     showDialog({
       type: 'alert',

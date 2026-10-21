@@ -377,6 +377,107 @@ html[data-transition='page']::view-transition-new(root) {
   }
 }
 
+/* Opening intro (components/OpeningIntro.tsx). While it plays, the page's entrances wait. */
+.intro-playing .rise,
+.intro-playing .fade-up,
+.intro-playing .slide-in,
+.intro-playing .answer-reveal {
+  animation-play-state: paused;
+}
+
+.intro-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: intro-node 480ms cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both;
+}
+
+@keyframes intro-node {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+.intro-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: intro-draw 380ms cubic-bezier(0.65, 0, 0.35, 1) var(--d) forwards;
+}
+
+@keyframes intro-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The drawn network hands over to the real logo, which rises into place over it like a page turning. */
+.intro-network {
+  animation: intro-fade-out 520ms ease 1350ms forwards;
+}
+
+@keyframes intro-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.intro-logo-img {
+  opacity: 0;
+  clip-path: inset(100% 0 0 0);
+  animation: intro-logo 720ms cubic-bezier(0.16, 1, 0.3, 1) 1150ms forwards;
+}
+
+@keyframes intro-logo {
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* One pass of light across the gold, clipped to the logo's own shape. */
+.intro-sheen {
+  -webkit-mask: url('/logo.png') center / contain no-repeat;
+  mask: url('/logo.png') center / contain no-repeat;
+  background: linear-gradient(105deg, transparent 38%, rgb(255 250 230 / 0.75) 50%, transparent 62%) no-repeat;
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  animation: intro-sheen 1000ms cubic-bezier(0.45, 0, 0.25, 1) 1700ms forwards;
+}
+
+@keyframes intro-sheen {
+  to {
+    background-position: -30% 0;
+  }
+}
+
+/* The name is written right to left, the way it is read. */
+.intro-name {
+  clip-path: inset(-20% 0 -20% 100%);
+  animation: intro-write 760ms cubic-bezier(0.65, 0, 0.35, 1) 1450ms forwards;
+}
+
+@keyframes intro-write {
+  to {
+    clip-path: inset(-20% 0 -20% 0);
+  }
+}
+
+.intro-tagline {
+  animation: fade-up 640ms cubic-bezier(0.16, 1, 0.3, 1) 1950ms both;
+}
+
+/* Tapped to skip: show the finished logo at once and let it travel. */
+.intro-skip .intro-network,
+.intro-skip .intro-sheen {
+  display: none;
+}
+
+.intro-skip .intro-logo-img {
+  animation: none;
+  opacity: 1;
+  clip-path: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .logo-halo::before,
   .shimmer-text,

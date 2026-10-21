@@ -140,11 +140,12 @@ export const createDiscordFeedbackPayload = (
   };
 };
 
-const sendFeedbackToDiscord = async (feedback: FeedbackPayload) => {
+/** Whether Discord took the feedback; 'unconfigured' when there is nowhere to send it. */
+const sendFeedbackToDiscord = async (feedback: FeedbackPayload): Promise<'sent' | 'failed' | 'unconfigured'> => {
   const webhookUrl = getDiscordWebhookUrl();
   if (!webhookUrl) {
     console.warn('[api/feedback] feedback webhook is not configured');
-    return;
+    return 'unconfigured';
   }
 
   const controller = new AbortController();
@@ -166,13 +167,16 @@ const sendFeedbackToDiscord = async (feedback: FeedbackPayload) => {
         messageId: feedback.messageId,
         chatId: feedback.chatId,
       });
+      return 'failed';
     }
+    return 'sent';
   } catch (error) {
     console.warn('[api/feedback] Discord webhook delivery failed', {
       messageId: feedback.messageId,
       chatId: feedback.chatId,
       error: error instanceof Error ? error.name : 'UnknownError',
     });
+    return 'failed';
   } finally {
     clearTimeout(timeout);
   }
@@ -209,7 +213,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     createdAt: feedback.createdAt,
   });
 
-  await sendFeedbackToDiscord(feedback);
-
+  // Say when the feedback went nowhere, so the app does not thank the user for nothing.
+  const delivery = await sendFeedbackToDiscord(feedback);
+  if (delivery === 'unconfigured') {
+    return res.status(503).json({ error: { code: 'FEEDBACK_NOT_CONFIGURED' } });
+  }
+  if (delivery === 'failed') {
+    return res.status(502).json({ error: { code: 'DELIVERY_FAILED' } });
+  }
   return res.status(202).json({ ok: true });
 }
