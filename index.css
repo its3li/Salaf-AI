@@ -214,7 +214,9 @@
   line-height: 2.75rem;
   text-align: center;
   color: var(--c-text);
-  padding: 1.25rem 1.25rem 1rem;
+  /* Amiri Quran reserves tall space above its letters for stacked marks, which leaves the visible
+     text sitting low in its line; the lighter top padding puts the letters in the middle. */
+  padding: 0.4em 1.25rem 1.1em;
   margin-block: 1.25rem;
   border-radius: 1.25rem;
   background:
