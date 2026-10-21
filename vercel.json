@@ -1,6 +1,7 @@
 {
   "functions": {
-    "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true }
+    "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true },
+    "api/media.ts": { "maxDuration": 300 }
   },
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },

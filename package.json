@@ -18,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
     "@vercel/analytics": "^1.6.1",
+    "@vercel/blob": "^2.8.2",
     "lucide-react": "^1.60.0",
     "pdfjs-dist": "^6.0.227",
     "react": "^19.2.0",

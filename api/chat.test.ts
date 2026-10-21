@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import handler, { clearChatRateLimitForTests } from './chat';
+import { signTranscript } from './_lib/media';
 
 interface MockResponse extends Partial<VercelResponse> {
   statusCode: number;
@@ -271,6 +272,46 @@ describe('/api/chat handler', () => {
         ],
       },
     ]);
+  });
+
+  it('passes a signed transcript to the model and rejects a forged one', async () => {
+    process.env.MEDIA_SIGNING_SECRET = 'test-secret';
+    const media = signTranscript(
+      {
+        kind: 'youtube',
+        title: 'شرح الأصول الثلاثة',
+        channel: 'قناة الدروس',
+        videoId: 'Hp5duraTH_U',
+        durationSec: 5034,
+        transcript: '[50:52] ومن يبتغ غير الإسلام دينا',
+      },
+      'test-secret'
+    );
+    const fetchMock = vi.fn().mockResolvedValue(createAnthropicStream(['ok']));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await handler(
+      createMockRequest({ body: { messages: [{ role: 'user', text: 'لخّص المقطع', media }] } }),
+      createMockResponse() as VercelResponse
+    );
+    const sent = getRequestBody(fetchMock).messages[0].content as string;
+    expect(sent).toContain('YouTube video: "شرح الأصول الثلاثة"');
+    expect(sent).toContain('https://www.youtube.com/watch?v=Hp5duraTH_U');
+    expect(sent).toContain('length 1:23:54');
+    expect(sent).toContain('<transcript>\n[50:52] ومن يبتغ غير الإسلام دينا\n</transcript>');
+    expect(sent.endsWith('لخّص المقطع')).toBe(true);
+    expect(getRequestBody(fetchMock).system).toContain('AUDIO AND VIDEO');
+
+    const forged = createMockResponse();
+    await handler(
+      createMockRequest({
+        body: { messages: [{ role: 'user', text: 'x', media: { ...media, transcript: 'anything at all' } }] },
+      }),
+      forged as VercelResponse
+    );
+    expect(forged.statusCode).toBe(400);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    delete process.env.MEDIA_SIGNING_SECRET;
   });
 
   it('uses environment-configured model settings', async () => {

@@ -205,7 +205,7 @@ test('explains the daily limit calmly and locks the input until it resets', asyn
   await page.getByTestId('chat-textarea').fill('One more question');
   await page.getByTestId('send-message').click();
 
-  await expect(page.getByText('وصلت إلى الحد اليومي لعدد الأسئلة', { exact: false })).toBeVisible();
+  await expect(page.getByText('انتهى رصيدك اليومي من النقاط', { exact: false })).toBeVisible();
   await expect(page.getByTestId('retry-message')).toHaveCount(0);
   await expect(page.getByTestId('quota-hint')).toBeVisible();
   await expect(page.getByTestId('chat-textarea')).toBeDisabled();

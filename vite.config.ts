@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title']);
+const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title', 'media']);
 
 const readBody = (req: IncomingMessage) =>
   new Promise<string>((resolve, reject) => {
@@ -189,7 +189,8 @@ export default defineConfig(({ command, mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      exclude: ['node_modules/**', 'dist/**', 'tests/e2e/**'],
+      // .claude/ holds other sessions' worktrees, each with its own copy of the tests.
+      exclude: ['node_modules/**', 'dist/**', 'tests/e2e/**', '.claude/**'],
     },
   };
 });
