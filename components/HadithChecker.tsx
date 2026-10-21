@@ -15,7 +15,10 @@ interface DorarEntry {
 
 type Status = 'idle' | 'loading' | 'empty' | 'error';
 
-const UNSOUND_GRADE = /لا يصح|لا أصل|موضوع|باطل|منكر|ضعيف|خطأ|شاذ|مضطرب|متروك/;
+// A grade is unsound when it judges the narration, or criticises a narrator in its chain ("[فيه]
+// أبو عاتكة هذا، لم أعرفه"). "لا يعرف إلا…" alone only says how a narration is known, so it does not count.
+const UNSOUND_GRADE =
+  /لا يصح|لا أصل|ليس له(?:ذا الحديث)? أصل|موضوع|باطل|منكر|ضعيف|خطأ|شاذ|مضطرب|متروك|لا يعرف(?! إلا)|لم أعرفه|لا يتابع|بكذبه|ذكر من جرحه/;
 const dorarSearchUrl = (query: string) => `https://dorar.net/hadith/search?q=${encodeURIComponent(query)}`;
 
 // Dorar.net's results for the witr hadith (checked October 2026), shown before the first search.
@@ -100,7 +103,8 @@ export const HadithChecker: React.FC = () => {
         {(status === 'idle' || status === 'loading') && (
           <ul className={`space-y-2 transition-opacity ${status === 'loading' ? 'opacity-50' : ''}`}>
             {results.map((entry, index) => {
-              const grade = entry.grade?.replace(/^\[|\]$/g, '');
+              // Dorar brackets words anywhere in a grade ("[فيه] أبو العاتكة لا يعرف…"); drop them all.
+              const grade = entry.grade?.replace(/[[\]]/g, '').trim();
               return (
                 <li key={`${entry.source}-${entry.number}-${index}`} className="rounded-2xl bg-surface-2 px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
