@@ -170,6 +170,10 @@ export default defineConfig(({ command, mode }) => {
           ],
         },
         workbox: {
+          // Take over as soon as a new version is installed, instead of waiting for every tab to
+          // close; services/appUpdates.ts then picks a moment to reload into it.
+          skipWaiting: true,
+          clientsClaim: true,
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
