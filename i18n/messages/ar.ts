@@ -1,13 +1,13 @@
-const creditCount = (count: number, n: string) => {
-  if (count === 1) return 'نقطة واحدة';
-  if (count === 2) return 'نقطتان';
-  return count >= 3 && count <= 10 ? `${n} نقاط` : `${n} نقطة`;
-};
-
 const minuteCount = (count: number, n: string) => {
   if (count === 1) return 'دقيقة واحدة';
   if (count === 2) return 'دقيقتان';
   return count >= 3 && count <= 10 ? `${n} دقائق` : `${n} دقيقة`;
+};
+
+const creditCount = (count: number, n: string) => {
+  if (count === 1) return 'نقطة واحدة';
+  if (count === 2) return 'نقطتان';
+  return count >= 3 && count <= 10 ? `${n} نقاط` : `${n} نقطة`;
 };
 
 export const ar = {
@@ -106,15 +106,20 @@ export const ar = {
   },
 
   media: {
-    warning:
-      'تنبيه: الذكاء الاصطناعي لا يشاهد المقطع ولا يسمعه؛ يُحوَّل كلام المقطع إلى نصّ مكتوب، ويقرأ هذا النصّ فقط. لن يعرف ما يظهر في الصورة ولا نبرة الصوت.',
+    warning: 'يقرأ الذكاء الاصطناعي نصّ الكلام فقط؛ لا يرى الصورة ولا يسمع الصوت.',
     titleYoutube: 'إضافة مقطع من يوتيوب',
     titleFile: 'إضافة مقطع صوتي أو مرئي',
-    cost: (credits: number, creditsText: string, minutes: number, minutesText: string, left: number, leftText: string) =>
-      `يُخصم لهذا المقطع ${creditCount(credits, creditsText)} و${minuteCount(minutes, minutesText)} من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
-    costUnknown: (left: number, leftText: string) =>
-      `تعذّر معرفة طول المقطع، فسيُحتسب بطوله الفعلي من ساعة اليوم للمقاطع (المتبقي منها ${minuteCount(left, leftText)}).`,
-    overAllowance: 'المقطع أطول من المتبقي لك اليوم، وسيُحوَّل كاملاً، ثم لا يمكن إضافة مقاطع أخرى حتى يتجدد الرصيد.',
+    creditsMeter: 'يُخصم من نقاطك',
+    minutesMeter: 'يُخصم من ساعة المقاطع',
+    /** What this clip uses, shown big in each meter. */
+    usesCredits: (count: number, n: string) => creditCount(count, n),
+    usesMinutes: (count: number, n: string) => minuteCount(count, n),
+    unknown: 'غير معروفة',
+    creditsLeft: (left: string, total: string) => `يتبقى ${left} من ${total}`,
+    minutesLeft: (left: string, total: string) => `يتبقى ${left} من ${total} دقيقة`,
+    rule: 'كل ٦ دقائق من المقطع بنقطة، وحتى ساعة من المقاطع كل يوم.',
+    unknownLength: 'مدة المقطع غير معروفة، فتُحسب بعد تحويله.',
+    overAllowance: 'المقطع أطول من المتبقي لك اليوم، فسيُحوَّل كاملًا ثم تنتهي مقاطع اليوم.',
     continue: 'متابعة',
     checking: 'جارٍ فحص الرابط…',
     uploading: (percent: string) => `جارٍ رفع الملف… ${percent}٪`,

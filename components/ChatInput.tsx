@@ -214,19 +214,42 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
     if (!showDialog) return true;
 
-    const left = Math.floor(allowance.mediaRemainingSeconds / 60);
-    const minutes = Math.max(1, Math.ceil((durationSec ?? 0) / 60));
-    let message = durationSec
-      ? t.media.cost(credits, format(credits), minutes, format(minutes), left, format(left))
-      : t.media.costUnknown(left, format(left));
-    if (durationSec && durationSec > allowance.mediaRemainingSeconds) message += `\n\n${t.media.overAllowance}`;
+    const { quota } = allowance;
+    const creditsAfter = Math.max(0, quota.remaining - credits);
+    const totalMinutes = Math.round(allowance.mediaLimitSeconds / 60);
+    const minutesLeft = Math.floor(allowance.mediaRemainingSeconds / 60);
+    const minutes = durationSec ? Math.max(1, Math.ceil(durationSec / 60)) : null;
+    const minutesAfter = minutes === null ? minutesLeft : Math.max(0, minutesLeft - minutes);
+    const notes = [
+      t.media.rule,
+      minutes === null && t.media.unknownLength,
+      durationSec && durationSec > allowance.mediaRemainingSeconds && t.media.overAllowance,
+    ].filter(Boolean);
 
     const confirmed = await showDialog({
       type: 'proceed',
       title: kind === 'youtube' ? t.media.titleYoutube : t.media.titleFile,
       preview,
       warning: t.media.warning,
-      message,
+      meters: [
+        {
+          label: t.media.creditsMeter,
+          uses: t.media.usesCredits(credits, format(credits)),
+          detail: t.media.creditsLeft(format(creditsAfter), format(quota.limit)),
+          total: quota.limit,
+          before: quota.remaining,
+          after: creditsAfter,
+        },
+        {
+          label: t.media.minutesMeter,
+          uses: minutes === null ? t.media.unknown : t.media.usesMinutes(minutes, format(minutes)),
+          detail: t.media.minutesLeft(format(minutesAfter), format(totalMinutes)),
+          total: totalMinutes,
+          before: minutesLeft,
+          after: minutesAfter,
+        },
+      ],
+      footnote: notes.join('\n'),
       confirmText: t.media.continue,
       cancelText: t.dialogs.cancel,
     });

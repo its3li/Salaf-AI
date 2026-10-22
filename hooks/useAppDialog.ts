@@ -9,6 +9,19 @@ export interface DialogPreview {
   imageUrl?: string;
 }
 
+/** A small gauge, e.g. today's credits: what this uses and what stays left of the total. */
+export interface DialogMeter {
+  label: string;
+  /** What this uses, shown big, e.g. "two minutes". */
+  uses: string;
+  /** e.g. "46 of 50 left". */
+  detail: string;
+  total: number;
+  /** Left before this, and after it. */
+  before: number;
+  after: number;
+}
+
 export interface DialogOptions {
   type: DialogType;
   title: string;
@@ -17,6 +30,9 @@ export interface DialogOptions {
   warning?: string;
   /** A small card for what the dialog is about, e.g. a video's thumbnail and title. */
   preview?: DialogPreview;
+  meters?: DialogMeter[];
+  /** A short line under the meters, e.g. how the limits work. */
+  footnote?: string;
   defaultValue?: string;
   confirmText?: string;
   cancelText?: string;

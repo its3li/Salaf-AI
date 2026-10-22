@@ -96,16 +96,20 @@ export const ur: Messages = {
   },
 
   media: {
-    warning:
-      'توجہ: مصنوعی ذہانت ویڈیو کو نہ دیکھتی ہے نہ سنتی ہے؛ ویڈیو کی گفتگو کو تحریری متن میں بدلا جاتا ہے اور وہ صرف یہی متن پڑھتی ہے۔ وہ نہ تصویر میں دکھائی دینے والی چیزیں جان سکتی ہے اور نہ آواز کا لہجہ۔',
+    warning: 'مصنوعی ذہانت صرف گفتگو کا متن پڑھتی ہے؛ نہ تصویر دیکھتی ہے نہ آواز سنتی ہے۔',
     titleYoutube: 'یوٹیوب ویڈیو شامل کریں',
     titleFile: 'آڈیو یا ویڈیو شامل کریں',
-    cost: (credits: number, creditsText: string, _minutes: number, minutesText: string, _left: number, leftText: string) =>
-      `اس پر ${credits === 1 ? 'ایک کریڈٹ' : `${creditsText} کریڈٹ`} اور آج کے آڈیو/ویڈیو کے ایک گھنٹے میں سے ${minutesText} منٹ لگیں گے (باقی ${leftText} منٹ)۔`,
-    costUnknown: (_left: number, leftText: string) =>
-      `ویڈیو کی لمبائی معلوم نہیں ہو سکی، اس لیے اس کی اصل لمبائی کے مطابق آج کے گھنٹے میں سے وقت لیا جائے گا (باقی ${leftText} منٹ)۔`,
-    overAllowance:
-      'یہ ویڈیو آج کے باقی وقت سے لمبی ہے؛ یہ پوری متن میں بدلی جائے گی، لیکن اس کے بعد کوٹہ نیا ہونے تک مزید ویڈیو شامل نہیں ہو سکے گی۔',
+    creditsMeter: 'آپ کے کریڈٹ سے',
+    minutesMeter: 'ویڈیو کے گھنٹے سے',
+    /** What this clip uses, shown big in each meter. */
+    usesCredits: (_count: number, n: string) => `${n} کریڈٹ`,
+    usesMinutes: (_count: number, n: string) => `${n} منٹ`,
+    unknown: 'معلوم نہیں',
+    creditsLeft: (left: string, total: string) => `${total} میں سے ${left} باقی`,
+    minutesLeft: (left: string, total: string) => `${total} میں سے ${left} منٹ باقی`,
+    rule: 'ہر ۶ منٹ کی ویڈیو ایک کریڈٹ کی ہے، اور روزانہ زیادہ سے زیادہ ایک گھنٹہ۔',
+    unknownLength: 'ویڈیو کی لمبائی معلوم نہیں، اس لیے متن بننے کے بعد شمار ہوگی۔',
+    overAllowance: 'یہ ویڈیو آج کے باقی وقت سے لمبی ہے؛ پوری متن میں بدلی جائے گی، پھر آج کا وقت ختم ہو جائے گا۔',
     continue: 'جاری رکھیں',
     checking: 'لنک دیکھا جا رہا ہے…',
     uploading: (percent: string) => `فائل اپ لوڈ ہو رہی ہے… ${percent}%`,

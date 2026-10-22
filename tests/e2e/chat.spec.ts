@@ -291,9 +291,12 @@ test('turns a YouTube link into a transcript and sends the waiting question with
 
   const dialog = page.getByTestId('app-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByTestId('dialog-warning')).toContainText('لا يشاهد المقطع ولا يسمعه');
+  await expect(dialog.getByTestId('dialog-warning')).toContainText('نصّ الكلام فقط');
   await expect(dialog).toContainText(TRANSCRIPT.title);
-  await expect(dialog).toContainText('نقطتان');
+  // Ten minutes: two points and ten of today's sixty minutes.
+  await expect(dialog.getByTestId('dialog-meters')).toContainText('نقطتان');
+  await expect(dialog.getByTestId('dialog-meters')).toContainText('١٠ دقائق');
+  await expect(dialog.getByTestId('dialog-meters')).toContainText('يتبقى ٥٠ من ٦٠ دقيقة');
   await page.getByTestId('dialog-confirm').click();
 
   // The card replaces the link; the question waits for the transcript.

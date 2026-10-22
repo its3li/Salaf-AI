@@ -96,16 +96,20 @@ export const fa: Messages = {
   },
 
   media: {
-    warning:
-      'توجه: هوش مصنوعی ویدیو را نمی‌بیند و نمی‌شنود؛ گفتار ویدیو به متن نوشتاری تبدیل می‌شود و فقط همین متن را می‌خواند. نه از آنچه در تصویر دیده می‌شود خبر دارد و نه از لحن صدا.',
+    warning: 'هوش مصنوعی فقط متن گفتار را می‌خواند؛ تصویر را نمی‌بیند و صدا را نمی‌شنود.',
     titleYoutube: 'افزودن ویدیوی یوتیوب',
     titleFile: 'افزودن فایل صوتی یا ویدیویی',
-    cost: (_credits: number, creditsText: string, _minutes: number, minutesText: string, _left: number, leftText: string) =>
-      `${creditsText} واحد اعتبار و ${minutesText} دقیقه از ساعت امروزِ فایل‌های صوتی و ویدیویی مصرف می‌شود (${leftText} دقیقه باقی مانده).`,
-    costUnknown: (_left: number, leftText: string) =>
-      `طول ویدیو مشخص نشد؛ به اندازه طول واقعی آن از ساعت امروز کم می‌شود (${leftText} دقیقه باقی مانده).`,
-    overAllowance:
-      'این ویدیو از زمان باقی‌مانده امروز شما طولانی‌تر است؛ به‌طور کامل به متن تبدیل می‌شود، اما پس از آن تا تمدید سهمیه نمی‌توانید ویدیوی دیگری اضافه کنید.',
+    creditsMeter: 'از اعتبار شما',
+    minutesMeter: 'از ساعت ویدیوی امروز',
+    /** What this clip uses, shown big in each meter. */
+    usesCredits: (_count: number, n: string) => `${n} واحد`,
+    usesMinutes: (_count: number, n: string) => `${n} دقیقه`,
+    unknown: 'نامعلوم',
+    creditsLeft: (left: string, total: string) => `${left} از ${total} باقی`,
+    minutesLeft: (left: string, total: string) => `${left} از ${total} دقیقه باقی`,
+    rule: 'هر ۶ دقیقه ویدیو یک واحد اعتبار است، و روزانه تا یک ساعت.',
+    unknownLength: 'مدت ویدیو نامعلوم است و پس از تبدیل حساب می‌شود.',
+    overAllowance: 'این ویدیو از زمان باقی‌مانده امروز بلندتر است؛ کامل تبدیل می‌شود و سپس زمان امروز تمام می‌شود.',
     continue: 'ادامه',
     checking: 'در حال بررسی پیوند…',
     uploading: (percent: string) => `در حال بارگذاری فایل… ${percent}٪`,

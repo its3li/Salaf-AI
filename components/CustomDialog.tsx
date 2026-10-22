@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AudioLines } from 'lucide-react';
+import { AudioLines, Info } from 'lucide-react';
 import { DialogOptions } from '../hooks/useAppDialog';
 import { useI18n } from '../i18n/context';
 
@@ -111,10 +111,35 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
               <p
                 role="note"
                 data-testid="dialog-warning"
-                className="mb-4 rounded-2xl border border-gold/30 bg-gold-soft px-4 py-3 text-[0.95rem] leading-relaxed text-gold-text"
+                className="mb-4 flex items-start gap-2 rounded-xl bg-gold-soft px-3 py-2.5 text-[0.88rem] leading-relaxed text-gold-text"
               >
+                <Info size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
                 {options.warning}
               </p>
+            )}
+
+            {options.meters && options.meters.length > 0 && (
+              <div className="mb-3 grid grid-cols-2 gap-2" data-testid="dialog-meters">
+                {options.meters.map((meter) => {
+                  const share = (value: number) => `${Math.max(0, Math.min(100, (value / Math.max(1, meter.total)) * 100))}%`;
+                  return (
+                    <div key={meter.label} className="rounded-2xl bg-surface-2 px-3.5 py-3">
+                      <span className="block text-[0.8rem] text-muted">{meter.label}</span>
+                      <span className="mt-0.5 block text-[1.05rem] font-bold text-gold-text">{meter.uses}</span>
+                      {/* What stays after this, then what this uses, out of the day's total. */}
+                      <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+                        <span className="bg-gold" style={{ width: share(meter.after) }} />
+                        <span className="bg-gold/35" style={{ width: share(meter.before - meter.after) }} />
+                      </div>
+                      <p className="mt-1.5 text-[0.78rem] text-faint">{meter.detail}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {options.footnote && (
+              <p className="mb-2 whitespace-pre-line text-[0.82rem] leading-relaxed text-faint">{options.footnote}</p>
             )}
 
             {options.message && (
