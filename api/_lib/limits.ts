@@ -156,6 +156,12 @@ const runRedisPipeline = async (
     return replies;
 };
 
+/** Runs raw Redis commands in one round trip; null when Redis isn't configured (local development). */
+export const runRedisCommands = (commands: Array<Array<string | number>>) => {
+    const config = getRedisConfig();
+    return config ? runRedisPipeline(config, commands) : Promise.resolve(null);
+};
+
 /**
  * `strict` stores throw when Redis is unreachable; the default falls back to memory so chat keeps
  * working through a Redis outage. Paid features use strict mode so an outage can't lift their limits.

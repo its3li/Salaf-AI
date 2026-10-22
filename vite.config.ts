@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title', 'media']);
+const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title', 'media', 'stats']);
 
 const readBody = (req: IncomingMessage) =>
   new Promise<string>((resolve, reject) => {

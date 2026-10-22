@@ -3,6 +3,7 @@
     "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true },
     "api/media.ts": { "maxDuration": 300 }
   },
+  "crons": [{ "path": "/api/stats", "schedule": "10 0 * * *" }],
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

@@ -10,6 +10,7 @@ import {
 } from './_lib/research.js';
 import { getBaseUrl } from './_lib/anthropic.js';
 import { formatTimestamp, getSigningSecret, verifyTranscript, type MediaTranscript } from './_lib/media.js';
+import { recordMessage } from './_lib/stats.js';
 import {
     clearMemoryStoreForTests,
     getNumberEnv,
@@ -529,6 +530,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sendEvent({ type: 'error', code: 'REFUSAL', message: 'The model declined to answer', requestId });
             } else {
                 sendEvent({ type: 'done', stopReason: finalMessage.stop_reason });
+                await recordMessage(req, language);
             }
 
             console.info('[api/chat] completed', {

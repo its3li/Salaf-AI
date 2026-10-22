@@ -25,6 +25,7 @@ import {
     type MediaKind,
     type MediaTranscript,
 } from './_lib/media.js';
+import { recordMedia } from './_lib/stats.js';
 
 // ---------------------------------------------------------------------------
 // /api/media turns a YouTube link or an uploaded audio/video file into a timestamped transcript.
@@ -386,6 +387,7 @@ const finishJob = async (
     await deleteUpload(job);
     const done: Job = { ...job, charge, stage: 'done', result };
     await saveJob(done);
+    await recordMedia(charge.seconds, provider);
     console.info('[api/media] transcript ready', {
         jobId: job.id,
         kind: job.kind,

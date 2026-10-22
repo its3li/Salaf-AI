@@ -99,6 +99,15 @@ Files under `api/_lib` are helpers, not their own endpoints.
 ### `api/feedback.ts`
 Receives "الإجابة غير دقيقة؟" reports (reason, question, answer) and posts them to the Discord webhook in `FEEDBACK_WEBHOOK_URL`, if set. It now allows at most 5 reports per IP every 10 minutes, per instance. Reports are also kept in the reporter's own browser.
 
+### `api/stats.ts` and `api/_lib/stats.ts`: daily usage report
+- **Recording:** every delivered answer and every finished transcript is counted per UTC day in Redis.
+  - **Messages:** `salaf:stats:day:<day>` holds the total and the count per reply language.
+  - **Clips:** the same key holds clips and seconds, how many came from the backup provider, and how many from the cache.
+  - **Users:** `salaf:stats:users:<day>` is a HyperLogLog, which counts different users (within about 1%) while keeping only a fuzzy fingerprint, never the ids themselves.
+  - **Retention and failures:** both keys expire after 90 days. A Redis failure never affects the answer.
+- **Report:** Vercel Cron calls `/api/stats` daily at 00:10 UTC (`crons` in `vercel.json`; on the Hobby plan it runs some time within that hour). It posts yesterday's numbers to Discord (`STATS_WEBHOOK_URL`, or the feedback webhook): users, messages, messages per user, languages, clips, and different users over the last 7 days. A warning line flags clips that needed the backup, the first sign AssemblyAI is failing or out of balance.
+- **Access:** only requests carrying `Authorization: Bearer $CRON_SECRET` get in; Vercel adds that header to cron requests. To check by hand: `curl -H "Authorization: Bearer <secret>" "https://salaf-ai.vercel.app/api/stats?day=2026-10-22&dryRun=1"`. `dryRun=1` returns the numbers without posting.
+
 ### `api/media.ts`: YouTube links and audio/video files
 Claude can't watch or hear, so the speech is turned into a timestamped transcript (`[50:52] …` lines) and Claude reads that. The browser drives it with short POST requests:
 
@@ -262,10 +271,11 @@ The app also has its own address now: `/chat`. The installed app opens straight 
    - Delete the old `GEMINI_API_KEY`.
 2. **Required for audio/video, recommended for everything:** Storage → Upstash for Redis → connect to this project (adds `KV_REST_API_*`).
 3. **Audio/video:** `ASSEMBLYAI_API_KEY`, `POLLINATIONS_API_KEY` (the backup), `MEDIA_SIGNING_SECRET` (a long random string; never change it), and a **Vercel Blob** store connected to the project for uploads (adds `BLOB_READ_WRITE_TOKEN`). YouTube audio also needs `PAXSENIX_API_KEY`. Until all of these and Redis are in place, `/api/media` answers `MEDIA_UNAVAILABLE` and YouTube links are simply treated as text.
-4. Optional: `DAILY_CREDIT_LIMIT`, the `MEDIA_*` limits, `FEEDBACK_WEBHOOK_URL` (see `.env.example`).
-4. Push the branch. Vercel builds a Preview. Open it and ask one question, then check Logs for `[api/chat] completed`.
-5. Promote or merge to production. Env var changes only apply to new deployments, so redeploy after editing them.
-6. Optional check: `SALAF_API_URL=https://<preview-url>/api/chat npm run health:api`.
+4. **Daily usage report:** `CRON_SECRET` (a long random string) and a Discord webhook (`STATS_WEBHOOK_URL`, or the feedback one).
+5. Optional: `DAILY_CREDIT_LIMIT`, the `MEDIA_*` limits, `FEEDBACK_WEBHOOK_URL` (see `.env.example`).
+6. Push the branch. Vercel builds a Preview. Open it and ask one question, then check Logs for `[api/chat] completed`.
+7. Promote or merge to production. Env var changes only apply to new deployments, so redeploy after editing them.
+8. Optional check: `SALAF_API_URL=https://<preview-url>/api/chat npm run health:api`.
 
 **Git note:** GitHub `main` has 6 commits not yet in this local copy. They only swapped API endpoints (voidai → subaxis → apinex), and the last one is broken: it posts to `https://api.apinex.bond/v1` with no `/chat/completions` path. The new `api/chat.ts` replaces all of that, so when merging, keep the local versions of `api/chat.ts` and `api/chat.test.ts`.
 
