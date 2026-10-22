@@ -16,6 +16,7 @@ import {
   saveChats,
   saveChatsToLocalStorage,
 } from '../services/chatStorage';
+import { getMediaAllowance } from '../services/media';
 import { DialogOptions } from './useAppDialog';
 import { useI18n } from '../i18n/context';
 import { DEFAULT_LANGUAGE, type Language } from '../i18n/languages';
@@ -213,6 +214,24 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
       isMounted = false;
     };
   }, [initialSnapshot]);
+
+  // The balance also changes elsewhere (another tab, a video), so ask the server for it when the app
+  // opens and again after each daily reset. Without it, the last known balance (or the default) shows.
+  const isQuotaUnknown = quota === null;
+  const hasAskedForQuotaRef = useRef(false);
+  useEffect(() => {
+    if (hasAskedForQuotaRef.current && !isQuotaUnknown) return;
+    hasAskedForQuotaRef.current = true;
+    let isCurrent = true;
+    void getMediaAllowance()
+      .then((allowance) => {
+        if (isCurrent) setQuota(allowance.quota);
+      })
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [isQuotaUnknown]);
 
   useEffect(() => {
     if (!quota) return;

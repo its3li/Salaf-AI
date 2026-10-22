@@ -19,6 +19,10 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/title', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: 'E2E title' }) })
   );
+  // The app asks for the day's balance when it opens; tests that use audio/video override this.
+  await page.route('**/api/media', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'MEDIA_UNAVAILABLE' } }) })
+  );
 });
 
 test('sends a message and renders the streamed answer', async ({ page }) => {
@@ -253,7 +257,10 @@ const allowance = (remaining = 50, mediaRemainingSeconds = 3600) => ({
   maxSeconds: 10800,
 });
 
-/** Fakes /api/media: a 10-minute video whose transcript is ready on the first status check. */
+/**
+ * Fakes /api/media: a 10-minute video whose transcript is ready on the first status check. The app also
+ * asks for the day's balance (`allowance`) when it opens, so tests compare the other actions.
+ */
 const mockMedia = async (page: Page, options: { remaining?: number } = {}) => {
   const actions: string[] = [];
   await page.route('**/api/media', async (route) => {
@@ -311,7 +318,7 @@ test('turns a YouTube link into a transcript and sends the waiting question with
     'https://www.youtube.com/watch?v=Hp5duraTH_U&t=15s'
   );
   expect(chatBody?.messages.at(-1)).toMatchObject({ text: 'ما رأيكم في هذا المقطع', media: TRANSCRIPT });
-  expect(actions).toEqual(['inspect', 'start', 'status']);
+  expect(actions.filter((action) => action !== 'allowance')).toEqual(['inspect', 'start', 'status']);
 });
 
 test('explains when there are not enough credits for a video, without asking first', async ({ page }) => {
@@ -321,7 +328,7 @@ test('explains when there are not enough credits for a video, without asking fir
 
   await expect(page.getByRole('alert')).toContainText('رصيدك اليوم لا يكفي لهذا المقطع');
   await expect(page.getByTestId('app-dialog')).toHaveCount(0);
-  expect(actions).toEqual(['inspect']);
+  expect(actions.filter((action) => action !== 'allowance')).toEqual(['inspect']);
 });
 
 /** One second of silent 8 kHz mono WAV audio. */
@@ -356,5 +363,7 @@ test('asks before transcribing an audio file and does nothing when cancelled', a
   await dialog.getByRole('button', { name: 'إلغاء' }).click();
 
   await expect(page.getByTestId('media-pending')).toHaveCount(0);
-  expect(actions).toEqual(['allowance']);
+  // Only balance checks: nothing was started or uploaded.
+  expect(actions.length).toBeGreaterThan(0);
+  expect(actions.every((action) => action === 'allowance')).toBe(true);
 });

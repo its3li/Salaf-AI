@@ -50,7 +50,8 @@ const groupChats = (chats: ChatSession[]) => {
   return groups.filter((group) => group.chats.length > 0);
 };
 
-const DAILY_ALLOWANCE = 30;
+// Shown only until the server reports the real balance; matches DAILY_CREDIT_LIMIT's default.
+const DAILY_ALLOWANCE = 50;
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
