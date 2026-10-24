@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Menu size={20} strokeWidth={1.9} aria-hidden="true" />
         </button>
 
-        <p className="min-w-0 flex-1 truncate px-1 text-[1rem] font-semibold">{title}</p>
+        <p className="min-w-0 flex-1 truncate px-1 text-[1rem] font-semibold"><span dir="auto">{title}</span></p>
 
         <LanguageMenu />
 

@@ -11,7 +11,7 @@ import { readStats, statsDay, type DayStats } from './_lib/stats.js';
 
 const DAY_MS = 86_400_000;
 const GOLD = 13938487;
-const LANGUAGE_NAMES: Record<string, string> = { ar: 'العربية', ur: 'الأردية', fa: 'الفارسية' };
+const LANGUAGE_NAMES: Record<string, string> = { ar: 'العربية', en: 'الإنجليزية', ur: 'الأردية', fa: 'الفارسية' };
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ar-u-nu-arab').format(value);
 

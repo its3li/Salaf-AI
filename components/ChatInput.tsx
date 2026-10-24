@@ -590,6 +590,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <textarea
           ref={textareaRef}
           data-testid="chat-textarea"
+          dir={input ? 'auto' : undefined}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}

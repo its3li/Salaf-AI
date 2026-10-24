@@ -15,6 +15,10 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
   });
+  // The tests read the Arabic interface. The test browser is English, which would otherwise open in English.
+  await page.route('**/api/geo', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ country: 'SA' }) })
+  );
   // The dev server runs the real API with the local keys; never let a test reach the model for a title.
   await page.route('**/api/title', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: 'E2E title' }) })
@@ -40,6 +44,27 @@ test('sends a message and renders the streamed answer', async ({ page }) => {
 
   await expect(page.getByLabel('User message').getByText('Test question')).toBeVisible();
   await expect(page.getByText('Mocked answer with a source.')).toBeVisible();
+});
+
+test('opens in English, left to right, for an English visitor outside the Arab world', async ({ page }) => {
+  await page.route('**/api/geo', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ country: 'GB' }) })
+  );
+  let sentLanguage: unknown;
+  await page.route('**/api/chat', async (route) => {
+    sentLanguage = route.request().postDataJSON()?.language;
+    await route.fulfill({ status: 200, contentType: 'text/event-stream; charset=utf-8', body: streamResponse('An answer.') });
+  });
+
+  await openChat(page);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What would you like to look into today?');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+
+  await page.getByTestId('chat-textarea').fill('What is Tawhid?');
+  await page.getByTestId('send-message').click();
+  await expect(page.getByText('An answer.')).toBeVisible();
+  expect(sentLanguage).toBe('en');
 });
 
 test('shows retry after a failed response and succeeds on retry', async ({ page }) => {

@@ -6,8 +6,9 @@ import { Attachment, Message } from '../types';
 import { hasFeedbackForMessage } from '../services/feedbackStorage';
 import { linkTimestamps, parseMessageSources } from '../services/messageParsing';
 import { formatClock, formatTime, localizeDigits } from '../services/format';
+import { gradeTone } from '../services/hadithGrades';
 import { useI18n } from '../i18n/context';
-import type { Language } from '../i18n/languages';
+import { textDirection, type Language } from '../i18n/languages';
 
 interface MessageBubbleProps {
   message: Message;
@@ -27,10 +28,13 @@ interface MarkdownProps {
 }
 
 const URL_PATTERN = /(https?:\/\/[^\s)،]+)/g;
-// A verdict ends its phrase, which keeps book titles such as «صحيح البخاري» from being read as one.
+// A verdict is a whole word that ends its phrase, which keeps book titles such as «صحيح البخاري» or
+// "Sahih al-Bukhari" from being read as one, and «ليس بصحيح» from showing as «صحيح». A denial is
+// matched as a whole, before the word it denies. English answers write the grades transliterated
+// or translated.
 const VERDICT_PATTERN =
-  /(باطل لا أصل له|لا يصح|لا أصل له|موضوع|باطل|منكر|ضعيف جدًا|ضعيف جدا|ضعيف|حسن صحيح|صحيح لغيره|حسن لغيره|صحيح|حسن)(?=\s*(?:$|[).،,:؛۔\]\-–]))/;
-const UNSOUND_VERDICT = /لا يصح|لا أصل|موضوع|باطل|منكر|ضعيف/;
+  /(?<![\u0600-\u06FF])(ليس بصحيح|غير صحيح|ليس بحديث|لا يثبت|لم يثبت|ليس بالقوي|باطل لا أصل له|لا يصح|لا أصل له|موضوع|باطل|منكر|ضعيف جدًا|ضعيف جدا|ضعيف|حسن صحيح|صحيح لغيره|حسن لغيره|صحيح|حسن|\b(?:not authentic|no basis|baseless|fabricated|mawdu['’ʿ]?|munkar|very weak|weak|da['’ʿ]?[iī]f(?: jiddan)?|hasan sahih|(?:sahih|hasan) li[- ]ghayrihi|sahih|hasan|authentic))(?=\s*(?:$|[).،,:؛۔\]\-–]))/i;
+const ENGLISH_UNSOUND = /not authentic|no basis|baseless|fabricated|mawdu|munkar|weak|da['’ʿ]?[iī]f/i;
 // Urdu and Persian answers spell the same grades with their own yeh and kaf (صحیح, منکر).
 const toArabicLetters = (text: string) => text.replace(/ی/g, 'ي').replace(/ک/g, 'ك');
 
@@ -40,7 +44,7 @@ const findVerdict = (sourceText: string) => {
   return match ? sourceText.slice(match.index, match.index + match[1].length) : undefined;
 };
 
-const LIST_NUMBERING: Record<Language, string> = { ar: 'arabic-indic', ur: 'urdu', fa: 'persian' };
+const LIST_NUMBERING: Record<Language, string> = { ar: 'arabic-indic', en: 'decimal', ur: 'urdu', fa: 'persian' };
 
 const getHostname = (url: string) => {
   try {
@@ -51,7 +55,7 @@ const getHostname = (url: string) => {
 };
 
 const VerdictPill: React.FC<{ verdict: string }> = ({ verdict }) => {
-  const unsound = UNSOUND_VERDICT.test(toArabicLetters(verdict));
+  const unsound = gradeTone(toArabicLetters(verdict)) === 'weak' || ENGLISH_UNSOUND.test(verdict);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.8rem] font-semibold ${
@@ -154,6 +158,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   videoId,
 }) => {
   const { t, language } = useI18n();
+  const isRtl = textDirection(language) === 'rtl';
   const localDigits = (text: string) => localizeDigits(text, language);
   const isUser = message.role === 'user';
   const [isCopied, setIsCopied] = useState(false);
@@ -265,7 +270,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       if (lang === 'quran') {
         const verse = content.trim().replace(/^﴿\s*|\s*﴾$/g, '');
         return (
-          <div className="quran whitespace-pre-wrap break-words">
+          <div dir="rtl" lang="ar" className="quran whitespace-pre-wrap break-words">
             <span className="verse-mark">﴿</span> {localDigits(verse)} <span className="verse-mark">﴾</span>
           </div>
         );
@@ -287,8 +292,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </span>
               {verdict && <VerdictPill verdict={verdict} />}
             </div>
-            <blockquote className="text-[1.12rem] leading-[2] font-medium">{localDigits(mainText)}</blockquote>
-            {sourceText && <figcaption className="source mt-2 text-[0.9rem] leading-relaxed text-muted">{sourceText}</figcaption>}
+            <blockquote dir="rtl" lang="ar" className="text-[1.12rem] leading-[2] font-medium">{localDigits(mainText)}</blockquote>
+            {sourceText && <figcaption dir="auto" className="source mt-2 text-[0.9rem] leading-relaxed text-muted">{sourceText}</figcaption>}
           </figure>
         );
       }
@@ -306,20 +311,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     ),
     table: ({ children }: MarkdownProps) => (
       <div className="my-4 overflow-x-auto rounded-xl border border-line">
-        <table className="min-w-full border-collapse text-right text-[0.95rem]">{children}</table>
+        <table className="min-w-full border-collapse text-start text-[0.95rem]">{children}</table>
       </div>
     ),
     thead: ({ children }: MarkdownProps) => <thead className="bg-surface-2">{children}</thead>,
     tbody: ({ children }: MarkdownProps) => <tbody className="divide-y divide-line">{children}</tbody>,
     th: ({ children }: MarkdownProps) => (
-      <th className="px-4 py-2.5 text-right font-semibold align-top">{processContent(children)}</th>
+      <th className="px-4 py-2.5 text-start font-semibold align-top">{processContent(children)}</th>
     ),
     td: ({ children }: MarkdownProps) => <td className="px-4 py-2.5 align-top break-words">{processContent(children)}</td>,
   };
 
   if (isUser) {
     return (
-      <article aria-label="User message" className="mb-8 flex justify-start slide-in">
+      <article aria-label="User message" className="mb-8 flex justify-start ltr:justify-end slide-in">
         <div className="max-w-[85%] md:max-w-[75%]">
           {message.attachment?.media ? (
             <MediaCard attachment={message.attachment} />
@@ -336,7 +341,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
           {message.text && (
-            <p className="rounded-3xl rounded-tr-lg bg-surface-2 px-5 py-3 text-[1.05rem] leading-[1.8] whitespace-pre-wrap break-words">
+            <p dir="auto" className="rounded-3xl rounded-tr-lg bg-surface-2 px-5 py-3 text-[1.05rem] leading-[1.8] whitespace-pre-wrap break-words">
               {message.text}
             </p>
           )}
@@ -380,7 +385,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <article aria-label="Salaf AI response" className={`mb-10 flex gap-3 ${isNew ? 'answer-reveal' : ''}`}>
       {avatar}
       <div className="min-w-0 flex-1 pt-0.5">
-        <div className="text-[1.05rem] leading-[1.95]">
+        <div dir="auto" className="text-[1.05rem] leading-[1.95]">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
             {processedText}
           </ReactMarkdown>
@@ -400,8 +405,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       {localDigits(String(index + 1))}
                     </span>
                     <span className="min-w-0">
-                      <span className="line-clamp-2 text-[0.9rem] leading-snug">{label}</span>
-                      {url && <span dir="ltr" className="mt-0.5 block truncate text-right text-[0.78rem] text-faint">{getHostname(url)}</span>}
+                      <span dir="auto" className="line-clamp-2 text-[0.9rem] leading-snug">{label}</span>
+                      {url && (
+                        <span dir="ltr" className={`mt-0.5 block truncate text-[0.78rem] text-faint ${isRtl ? 'text-right' : ''}`}>
+                          {getHostname(url)}
+                        </span>
+                      )}
                     </span>
                   </>
                 );

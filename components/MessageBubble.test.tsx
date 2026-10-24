@@ -56,6 +56,22 @@ describe('MessageBubble guardrails', () => {
     expect(container.querySelector('pre')?.textContent).toBe('block code');
   });
 
+  it('never shows a denied grade as authentic', () => {
+    const { container } = render(
+      <MessageBubble
+        message={{
+          ...baseMessage,
+          text: '<p class="hadith">نص الحديث <br><span class="source">رواه فلان، وقال الذهبي: ليس بصحيح</span></p>\n<p class="hadith">نص آخر <br><span class="source">رواه البخاري (١) - صحيح</span></p>',
+        }}
+      />
+    );
+
+    const pills = [...container.querySelectorAll('figure.hadith span.rounded-full')];
+    expect(pills.map((pill) => pill.textContent)).toEqual(['ليس بصحيح', 'صحيح']);
+    expect(pills[0].className).toContain('text-danger');
+    expect(pills[1].className).toContain('text-gold-text');
+  });
+
   it('calls retry for retryable error responses', () => {
     const handleRetry = vi.fn();
     render(

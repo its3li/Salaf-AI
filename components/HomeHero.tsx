@@ -39,7 +39,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ onPickQuestion, children }) 
             type="button"
             onClick={() => onPickQuestion(item.question)}
             style={delay(320 + index * 60)}
-            className="rise group flex items-center gap-3 rounded-2xl border border-line bg-surface/60 px-4 py-3 text-right transition-all hover:-translate-y-0.5 hover:border-gold/40 hover:bg-surface hover:shadow-[0_10px_30px_-18px_rgba(212,175,55,0.55)]"
+            className="rise group flex items-center gap-3 rounded-2xl border border-line bg-surface/60 px-4 py-3 text-start transition-all hover:-translate-y-0.5 hover:border-gold/40 hover:bg-surface hover:shadow-[0_10px_30px_-18px_rgba(212,175,55,0.55)]"
           >
             <span className="shrink-0 rounded-full bg-gold-soft px-2.5 py-0.5 text-[0.75rem] font-semibold text-gold-text">
               {item.topic}

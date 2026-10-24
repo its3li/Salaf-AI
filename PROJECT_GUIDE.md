@@ -304,5 +304,5 @@ The app also has its own address now: `/chat`. The installed app opens straight 
 - **Rotate the keys** shared during setup (the Claude proxy key and both search keys) once you have permanent ones.
 - Web search and page reading go through PaxSenix and AquaDevs, so the search terms (derived from users' questions) pass through those services too.
 - `claude.c00l.site` is a third-party proxy. Every question (and image or PDF text, and transcripts) passes through it, so make sure you trust its operator.
-- Audio from YouTube links and uploaded files goes to AssemblyAI for transcription, or to Microsoft through Pollinations when AssemblyAI fails. YouTube audio is fetched through PaxSenix. Uploaded files sit in Vercel Blob under a random name only until their transcript is done, then are deleted. The About page FAQ says this in all three languages.
+- Audio from YouTube links and uploaded files goes to AssemblyAI for transcription, or to Microsoft through Pollinations when AssemblyAI fails. YouTube audio is fetched through PaxSenix. Uploaded files sit in Vercel Blob under a random name only until their transcript is done, then are deleted. The About page FAQ says this in all four languages.
 - The API key is used only on the server. The browser never sees it.

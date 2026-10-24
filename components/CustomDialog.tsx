@@ -153,6 +153,7 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
                 <input
                   ref={inputRef}
                   type="text"
+                  dir={inputValue ? 'auto' : undefined}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -167,6 +168,7 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
                 <textarea
                   ref={textareaRef}
                   data-testid="dialog-feedback-input"
+                  dir={inputValue ? 'auto' : undefined}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleFeedbackKeyDown}

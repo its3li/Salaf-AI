@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink, Info, X } from 'lucide-react';
 import { useI18n } from '../i18n/context';
 import { localizeDigits } from '../services/format';
+import { gradeTone, type GradeTone } from '../services/hadithGrades';
 
 interface DorarEntry {
   text: string;
@@ -15,10 +16,13 @@ interface DorarEntry {
 
 type Status = 'idle' | 'loading' | 'empty' | 'error';
 
-// A grade is unsound when it judges the narration, or criticises a narrator in its chain ("[فيه]
-// أبو عاتكة هذا، لم أعرفه"). "لا يعرف إلا…" alone only says how a narration is known, so it does not count.
-const UNSOUND_GRADE =
-  /لا يصح|لا أصل|ليس له(?:ذا الحديث)? أصل|موضوع|باطل|منكر|ضعيف|خطأ|شاذ|مضطرب|متروك|لا يعرف(?! إلا)|لم أعرفه|لا يتابع|بكذبه|ذكر من جرحه/;
+// Gold only for a grade that plainly says sound; one that is neither clearly sound nor weak («أورده
+// مسلم في مقدمة صحيحه», «سكت عنه») stays grey for the reader to judge.
+const GRADE_STYLES: Record<GradeTone, { className: string; Icon: typeof Check }> = {
+  sound: { className: 'bg-gold-soft text-gold-text', Icon: Check },
+  weak: { className: 'bg-danger-soft text-danger', Icon: X },
+  unclear: { className: 'bg-surface-3 text-muted', Icon: Info },
+};
 const dorarSearchUrl = (query: string) => `https://dorar.net/hadith/search?q=${encodeURIComponent(query)}`;
 
 // Dorar.net's results for the witr hadith (checked October 2026), shown before the first search.
@@ -71,6 +75,7 @@ export const HadithChecker: React.FC = () => {
         <input
           id="hadith-query"
           lang="ar"
+          dir={query ? 'auto' : undefined}
           name="q"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -105,21 +110,24 @@ export const HadithChecker: React.FC = () => {
             {results.map((entry, index) => {
               // Dorar brackets words anywhere in a grade ("[فيه] أبو العاتكة لا يعرف…"); drop them all.
               const grade = entry.grade?.replace(/[[\]]/g, '').trim();
+              const tone = grade ? gradeTone(entry.grade ?? '') : 'unclear';
+              const { className: gradeClassName, Icon } = GRADE_STYLES[tone];
               return (
                 <li key={`${entry.source}-${entry.number}-${index}`} className="rounded-2xl bg-surface-2 px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <p lang="ar" className="text-[1.02rem] leading-[1.9] font-medium">{entry.text}</p>
-                    {grade && (
-                      <span
-                        className={`mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-[0.78rem] font-semibold ${
-                          UNSOUND_GRADE.test(grade) ? 'bg-danger-soft text-danger' : 'bg-gold-soft text-gold-text'
-                        }`}
+                  <p lang="ar" dir="rtl" className="text-[1.02rem] leading-[1.9] font-medium">{entry.text}</p>
+                  {/* The whole grade, never cut short: its last words can turn it ("…وليس لهذا الحديث أصل"). */}
+                  {grade && (
+                    <div lang="ar" dir="rtl" className="mt-2">
+                      <p
+                        data-grade-tone={tone}
+                        className={`inline-flex max-w-full items-start gap-1.5 rounded-xl px-2.5 py-1 text-[0.85rem] leading-relaxed font-semibold ${gradeClassName}`}
                       >
-                        {grade.length > 18 ? `${grade.slice(0, 18)}…` : grade}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[0.85rem] text-muted">
+                        <Icon size={14} strokeWidth={2.6} aria-hidden="true" className="mt-[0.3em] shrink-0" />
+                        <span>{grade}</span>
+                      </p>
+                    </div>
+                  )}
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-1 text-[0.85rem] text-muted">
                     {entry.muhaddith && <>{t.hadithChecker.muhaddith} {entry.muhaddith} · </>}
                     {entry.link ? (
                       <a

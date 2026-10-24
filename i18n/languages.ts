@@ -1,21 +1,35 @@
-export type Language = 'ar' | 'ur' | 'fa';
+export type Language = 'ar' | 'en' | 'ur' | 'fa';
 
 export const DEFAULT_LANGUAGE: Language = 'ar';
 
-/** Listed in the language menu under their own names. All three are written right to left. */
+/** Listed in the language menu under their own names. */
 export const LANGUAGES: { code: Language; name: string }[] = [
   { code: 'ar', name: 'العربية' },
+  { code: 'en', name: 'English' },
   { code: 'ur', name: 'اردو' },
   { code: 'fa', name: 'فارسی' },
 ];
 
-// Where most visitors read Urdu or Persian rather than Arabic; everywhere else starts in Arabic.
-const COUNTRY_LANGUAGE: Record<string, Language> = { PK: 'ur', IR: 'fa', AF: 'fa' };
+/** English reads left to right; Arabic, Urdu and Persian right to left. */
+export const textDirection = (language: Language) => (language === 'en' ? 'ltr' : 'rtl');
+
+// Where most visitors read Urdu or Persian, and the Arab countries, so that an English browser there
+// still starts in Arabic. Elsewhere the browser's language decides, then Arabic.
+const ARAB_COUNTRIES = [
+  'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'YE', 'IQ', 'SY', 'JO', 'LB', 'PS', 'EG', 'SD', 'LY', 'TN', 'DZ', 'MA', 'MR', 'SO', 'DJ', 'KM',
+];
+const COUNTRY_LANGUAGE: Record<string, Language> = {
+  ...Object.fromEntries(ARAB_COUNTRIES.map((country) => [country, 'ar'])),
+  PK: 'ur',
+  IR: 'fa',
+  AF: 'fa',
+};
 
 const LANGUAGE_KEY = 'salaf-ai-language';
 const GEO_TIMEOUT_MS = 1500;
 
-export const isLanguage = (value: unknown): value is Language => value === 'ar' || value === 'ur' || value === 'fa';
+export const isLanguage = (value: unknown): value is Language =>
+  value === 'ar' || value === 'en' || value === 'ur' || value === 'fa';
 
 export const readStoredLanguage = (): Language | null => {
   try {

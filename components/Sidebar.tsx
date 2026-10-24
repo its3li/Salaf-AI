@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { PanelRight, Pencil, Search, SquarePen, Trash2, X } from 'lucide-react';
+import { PanelLeft, PanelRight, Pencil, Search, SquarePen, Trash2, X } from 'lucide-react';
 import { ChatSession } from '../types';
 import { ChatQuota } from '../services/chatService';
 import { Theme } from '../hooks/useTheme';
 import { useI18n } from '../i18n/context';
+import { textDirection } from '../i18n/languages';
 import { SettingsMenu } from './SettingsMenu';
 
 interface SidebarProps {
@@ -73,7 +74,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onImportChats,
   onToggleFocus,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  // Closed on a phone, it waits off screen on the side it opens from: the right, or the left in English.
+  const isRtl = textDirection(language) === 'rtl';
+  const hiddenOffset = isRtl ? 'translate-x-full' : '-translate-x-full';
+  const PanelIcon = isRtl ? PanelRight : PanelLeft;
   const [search, setSearch] = useState('');
   const groups = useMemo(() => {
     const query = search.trim();
@@ -93,10 +98,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       />
 
       <aside
-        className={`fixed top-0 right-0 z-50 flex h-full flex-col overflow-hidden border-e border-line bg-surface transition-[width,opacity,transform] duration-300 ease-out md:relative ${
+        className={`fixed top-0 start-0 z-50 flex h-full flex-col overflow-hidden border-e border-line bg-surface transition-[width,opacity,transform] duration-300 ease-out md:relative ${
           isFocusMode
             ? 'pointer-events-none w-0 border-e-transparent opacity-0'
-            : `w-[86vw] max-w-[300px] opacity-100 md:w-[272px] ${isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`
+            : `w-[86vw] max-w-[300px] opacity-100 md:w-[272px] ${isOpen ? 'translate-x-0' : `${hiddenOffset} md:translate-x-0`}`
         }`}
       >
         <div className="flex h-full w-[86vw] max-w-[300px] flex-col md:w-[272px]">
@@ -112,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               aria-label={t.sidebar.hide}
               title={t.sidebar.hide}
             >
-              <PanelRight size={18} strokeWidth={1.8} aria-hidden="true" />
+              <PanelIcon size={18} strokeWidth={1.8} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -136,6 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <label className="flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-3 text-faint focus-within:ring-2 focus-within:ring-gold/30">
               <Search size={16} strokeWidth={2} aria-hidden="true" />
               <input
+                dir={search ? 'auto' : undefined}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t.sidebar.search}
@@ -168,11 +174,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             type="button"
                             onClick={() => onSelectChat(chat.id)}
                             aria-current={isActive ? 'true' : undefined}
-                            className={`h-10 min-w-0 flex-1 truncate px-3 text-right text-[0.92rem] ${
+                            className={`h-10 min-w-0 flex-1 truncate px-3 text-start text-[0.92rem] ${
                               isActive ? 'font-medium text-text' : 'text-muted group-hover:text-text'
                             }`}
                           >
-                            {chat.title}
+                            <span dir="auto">{chat.title}</span>
                           </button>
                           <div className="flex shrink-0 items-center gap-0.5 pe-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
                             <button

@@ -4,12 +4,14 @@ import type { Language } from '../i18n/languages';
 // numbering system is requested explicitly; Urdu and Persian use the extended Arabic-Indic digits.
 const LOCALES: Record<Language, string> = {
   ar: 'ar-u-nu-arab',
+  en: 'en-US',
   ur: 'ur-PK-u-nu-arabext',
   fa: 'fa-IR-u-nu-arabext',
 };
 
 const DIGITS: Record<Language, string> = {
   ar: '٠١٢٣٤٥٦٧٨٩',
+  en: '0123456789',
   ur: '۰۱۲۳۴۵۶۷۸۹',
   fa: '۰۱۲۳۴۵۶۷۸۹',
 };

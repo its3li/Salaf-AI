@@ -55,34 +55,53 @@ const search = (query: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'تحقق' }));
 };
 
-// Each result's grade badge: the only span in its row.
-const badges = () => screen.getAllByRole('listitem').map((item) => item.querySelector('span'));
+// Each result's grade, with how it reads.
+const badges = () => screen.getAllByRole('listitem').map((item) => item.querySelector('[data-grade-tone]'));
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe('HadithChecker', () => {
-  it('drops Dorar\'s brackets wherever they fall in a grade and shortens long grades', async () => {
+  it('shows the whole grade, without Dorar\'s brackets wherever they fall in it', async () => {
     render(<HadithChecker />);
     search('اطلبوا العلم ولو بالصين');
 
-    expect(await screen.findByText('فيه أبو العاتكة لا…')).toBeDefined();
+    expect(await screen.findByText('فيه أبو العاتكة لا يعرف، وليس لهذا الحديث أصل')).toBeDefined();
     expect(screen.getByText('منكر', { selector: 'span' })).toBeDefined();
     expect(screen.queryByText(/[[\]]/)).toBeNull();
   });
 
-  it('colours grades that criticise a narrator red, as well as unsound ones, and the others gold', async () => {
+  it('colours grades that criticise a narrator red, as well as unsound ones, and sound ones gold', async () => {
     render(<HadithChecker />);
-    expect(badges().map((badge) => badge?.className)).toEqual([
-      expect.stringContaining('text-gold-text'),
-      expect.stringContaining('text-gold-text'),
-    ]);
+    expect(badges().map((badge) => badge?.getAttribute('data-grade-tone'))).toEqual(['sound', 'sound']);
 
     search('اطلبوا العلم ولو بالصين');
     await screen.findByText('منكر', { selector: 'span' });
-    expect(badges().map((badge) => badge?.className)).toEqual(
-      RESULTS.map(() => expect.stringContaining('text-danger'))
+    expect(badges().map((badge) => badge?.getAttribute('data-grade-tone'))).toEqual(RESULTS.map(() => 'weak'));
+    expect(badges()[0]?.className).toContain('text-danger');
+  });
+
+  it('keeps a grade that is neither plainly sound nor weak grey, never gold', async () => {
+    render(<HadithChecker />);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            results: [
+              { text: 'من حدث عني بحديث يرى أنه كذب فهو أحد الكاذبين', muhaddith: 'مسلم', source: 'صحيح مسلم', number: '1', grade: 'أورده مسلم في مقدمة صحيحه' },
+              { text: 'نص', muhaddith: 'فلان', source: 'كتاب', grade: 'ليس بحديث' },
+            ],
+          })
+        )
+      )
     );
+    fireEvent.change(screen.getByLabelText('جزء من نص الحديث'), { target: { value: 'من حدث عني بحديث' } });
+    fireEvent.click(screen.getByRole('button', { name: 'تحقق' }));
+
+    expect(await screen.findByText('أورده مسلم في مقدمة صحيحه')).toBeDefined();
+    expect(badges().map((badge) => badge?.getAttribute('data-grade-tone'))).toEqual(['unclear', 'weak']);
+    expect(badges()[0]?.className).not.toContain('gold');
   });
 });

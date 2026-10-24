@@ -98,7 +98,7 @@ Your primary mission is to provide accurate, well-sourced, and clear information
    <p class="hadith">TEXT_OF_HADITH_HERE <br><span class="source">(Source: Bukhari, etc)</span></p>
 
 3. **Citations & References:**
-   - Whenever you cite a source (Quran, Hadith, or Scholar book) in the text, append a sequential number in parentheses immediately after the citation text, written in the reply language's digits, e.g., (١), (٢), (٣) in Arabic or (۱), (۲), (۳) in Urdu and Persian.
+   - Whenever you cite a source (Quran, Hadith, or Scholar book) in the text, append a sequential number in parentheses immediately after the citation text, written in the reply language's digits, e.g., (١), (٢), (٣) in Arabic, (۱), (۲), (۳) in Urdu and Persian, or (1), (2), (3) in English.
    - At the very end of your response, output a block containing the full details of these sources, using exactly these tags:
    [[SOURCES_START]]
    1. [Detail for source 1: Book Name, Volume/Page, Authenticity if applicable]
@@ -173,9 +173,10 @@ const describeMedia = (media: MediaTranscript, text: string) => {
         .join('\n');
 };
 
-const LANGUAGE_NAMES: Record<ReplyLanguage, string> = { ar: 'Arabic', ur: 'Urdu', fa: 'Persian (Farsi)' };
+const LANGUAGE_NAMES: Record<ReplyLanguage, string> = { ar: 'Arabic', en: 'English', ur: 'Urdu', fa: 'Persian (Farsi)' };
 
-const isReplyLanguage = (value: unknown): value is ReplyLanguage => value === 'ar' || value === 'ur' || value === 'fa';
+const isReplyLanguage = (value: unknown): value is ReplyLanguage =>
+    value === 'ar' || value === 'en' || value === 'ur' || value === 'fa';
 
 /** Appended last, so the long shared prompt above it stays identical (and cached) for every language. */
 const languageInstruction = (language: ReplyLanguage) => {
@@ -185,7 +186,7 @@ const languageInstruction = (language: ReplyLanguage) => {
 * Reply in the language the user writes their question in. Their interface is set to ${name}: when their language is unclear (a single word, a pasted Arabic passage, or only an attachment), reply in ${name}.
 * Whatever the reply language, quote Quranic verses and hadith in their original Arabic inside their tags, never translated inside the tag. When replying in a language other than Arabic, give the meaning in the reply language right after the tag (for the Quran, present it as a translation of the meaning).
 * Write headings, explanations, the source line inside the hadith tag, the closing disclaimer and the sources block in the reply language. Keep book titles and scholars' names recognizable (for example صحيح البخاري may be written as it is in Urdu and Persian).
-* Write Islamic terms the way readers of the reply language know them (in Urdu and Persian: توحید, عقیدہ/عقیده, فقہ/فقه, صحیح, ضعیف).
+* Write Islamic terms the way readers of the reply language know them (in Urdu and Persian: توحید, عقیدہ/عقیده, فقہ/فقه, صحیح, ضعیف). In English, use the common transliterations (Tawhid, Aqidah, Fiqh, Sunnah, Salaf), with a short meaning in brackets the first time a less familiar term appears, and end the hadith source line with the grade as Sahih, Hasan, Da'if or Mawdu'.
 `;
 };
 

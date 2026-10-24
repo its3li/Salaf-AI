@@ -14,7 +14,7 @@ const LIMIT_PER_WINDOW = 20;
 const WINDOW_MS = 10 * 60 * 1000;
 const UPSTREAM_TIMEOUT_MS = 20_000;
 
-const LANGUAGE_NAMES: Record<string, string> = { ar: 'Arabic', ur: 'Urdu', fa: 'Persian (Farsi)' };
+const LANGUAGE_NAMES: Record<string, string> = { ar: 'Arabic', en: 'English', ur: 'Urdu', fa: 'Persian (Farsi)' };
 
 const requests = new Map<string, { count: number; resetAt: number }>();
 

@@ -89,7 +89,7 @@ export const getResearchConfig = (): ResearchConfig => ({
     aquadevsKey: process.env.AQUADEVS_API_KEY,
 });
 
-export type ReplyLanguage = 'ar' | 'ur' | 'fa';
+export type ReplyLanguage = 'ar' | 'en' | 'ur' | 'fa';
 
 const TOOL_STATUS: Record<
     ReplyLanguage,
@@ -101,6 +101,13 @@ const TOOL_STATUS: Record<
         read: 'يقرأ المصدر',
         readSite: (host) => `يقرأ المصدر: ${host}`,
         other: 'يراجع المصادر',
+    },
+    en: {
+        hadith: 'Checking the hadith on Dorar',
+        search: "Searching the scholars' sources",
+        read: 'Reading the source',
+        readSite: (host) => `Reading the source: ${host}`,
+        other: 'Going through the sources',
     },
     ur: {
         hadith: 'الدرر السنیہ میں حدیث کی تصدیق کر رہا ہے',

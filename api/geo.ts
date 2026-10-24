@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // The visitor's country, which Vercel's edge adds to every request. The app asks once, on a first
-// visit, to open in Urdu for Pakistan and Persian for Iran and Afghanistan. Nothing is stored.
+// visit, to open in Urdu for Pakistan, Persian for Iran and Afghanistan, and Arabic in the Arab
+// countries even when the browser is in English. Nothing is stored.
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
     // Per visitor: a shared cache would hand one country's answer to everyone.
