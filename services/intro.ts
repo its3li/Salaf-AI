@@ -4,6 +4,8 @@ const INTRO_KEY = 'salaf-ai-intro-played';
 export const shouldPlayIntro = () => {
   try {
     if (navigator.webdriver) return false;
+    // Someone opening a shared conversation came to read it, not to watch the logo.
+    if (window.location.pathname.startsWith('/s/')) return false;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
     return sessionStorage.getItem(INTRO_KEY) !== '1';
   } catch {

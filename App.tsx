@@ -12,6 +12,10 @@ import { AboutPage } from './components/AboutPage';
 import { OpeningIntro } from './components/OpeningIntro';
 import { Sidebar } from './components/Sidebar';
 import { CustomDialog } from './components/CustomDialog';
+import { ShareDialog } from './components/ShareDialog';
+import { ShareView } from './components/ShareView';
+import { shareIdFromPath } from './services/shareService';
+import type { Message } from './types';
 import { useChats } from './hooks/useChats';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useAppDialog } from './hooks/useAppDialog';
@@ -19,15 +23,20 @@ import { useTheme } from './hooks/useTheme';
 import { runViewTransition } from './services/viewTransition';
 import { useI18n } from './i18n/context';
 
-type ViewState = 'chat' | 'about';
+type ViewState = 'chat' | 'about' | 'share';
 
 const ABOUT_PATH = '/about';
 
-const viewFromPath = (): ViewState =>
-  typeof window !== 'undefined' && window.location.pathname.startsWith(ABOUT_PATH) ? 'about' : 'chat';
+const viewFromPath = (): ViewState => {
+  if (typeof window === 'undefined') return 'chat';
+  if (window.location.pathname.startsWith(ABOUT_PATH)) return 'about';
+  return shareIdFromPath(window.location.pathname) ? 'share' : 'chat';
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(viewFromPath);
+  const [shareId, setShareId] = useState(() => shareIdFromPath(window.location.pathname));
+  const [shareTarget, setShareTarget] = useState<{ messages: Message[]; messageId: string } | null>(null);
   const [showIntro] = useState(() => document.documentElement.classList.contains('intro-playing'));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -63,6 +72,8 @@ const App: React.FC = () => {
     handleClearAllChats,
     handleExportChats,
     handleImportChats,
+    setMessageShare,
+    continueSharedConversation,
   } = useChats(showDialog);
   const isActiveChatLoading = activeChatId !== null && loadingChatIds.includes(activeChatId);
   const hasMessages = currentMessages.length > 0;
@@ -93,11 +104,16 @@ const App: React.FC = () => {
 
   // The tab title follows the page and the interface language.
   useEffect(() => {
+    // A shared conversation names its own tab after the question (see ShareView).
+    if (view === 'share') return;
     document.title = view === 'about' ? t.meta.aboutTitle : t.meta.title;
   }, [view, t]);
 
   useEffect(() => {
-    const handlePopState = () => setView(viewFromPath());
+    const handlePopState = () => {
+      setView(viewFromPath());
+      setShareId(shareIdFromPath(window.location.pathname));
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -128,7 +144,7 @@ const App: React.FC = () => {
   }, [lastArrivedMessageId]);
 
   const navigate = (next: ViewState) => {
-    window.history.pushState(null, '', next === 'about' ? ABOUT_PATH : '/');
+    window.history.pushState(null, '', next === 'about' ? ABOUT_PATH : next === 'share' && shareId ? `/s/${shareId}` : '/');
     runViewTransition('page', () => {
       setView(next);
       setIsSidebarOpen(false);
@@ -188,7 +204,29 @@ const App: React.FC = () => {
         onClose={closeInstallGuide}
       />
 
-      {view === 'about' ? (
+      {shareTarget && (
+        <ShareDialog
+          key={shareTarget.messageId}
+          target={shareTarget}
+          onShared={setMessageShare}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
+
+      {view === 'share' && shareId ? (
+        <ShareView
+          key={shareId}
+          shareId={shareId}
+          onAskOwn={() => {
+            createNewChat(false);
+            navigate('chat');
+          }}
+          onContinue={(title, messages) => {
+            continueSharedConversation(title, messages);
+            navigate('chat');
+          }}
+        />
+      ) : view === 'about' ? (
         <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} />
       ) : (
         <div className="flex h-dvh overflow-hidden bg-bg text-text">
@@ -253,6 +291,7 @@ const App: React.FC = () => {
                           canRetry={retryableErrorMessageId === msg.id}
                           onRetry={(messageId) => void handleRetryMessage(messageId)}
                           onFeedback={(messageId) => handleSubmitFeedback(messageId)}
+                          onShare={(messageId) => setShareTarget({ messages: currentMessages, messageId })}
                         />
                       </div>
                     ))}

@@ -1,4 +1,4 @@
-import { Message, Attachment, MediaTranscript, NativeFile } from '../types';
+import { Message, Attachment, MediaTranscript, NativeFile, AnswerReceipt } from '../types';
 import { compressImageDataUrl } from './attachments';
 import { formatTime } from './format';
 import { DEFAULT_LANGUAGE, type Language } from '../i18n/languages';
@@ -17,13 +17,15 @@ interface ApiMessage {
   media?: MediaTranscript;
   native?: NativeFile;
   pdfText?: string;
+  /** Lets the server confirm an earlier answer is its own, unedited, so this one can be shared. */
+  receipt?: { id: string; key: string };
 }
 
 type StreamEvent =
   | { type: 'text'; text: string }
   | { type: 'status'; message: string }
   | { type: 'reset' }
-  | { type: 'done'; stopReason: string | null; mediaFallback?: MediaTranscript; pdfTextFallback?: boolean }
+  | { type: 'done'; stopReason: string | null; mediaFallback?: MediaTranscript; pdfTextFallback?: boolean; receipt?: { id: string; key: string } }
   | { type: 'error'; code: string; message: string; requestId?: string };
 
 interface ApiErrorResponse {
@@ -46,6 +48,7 @@ export interface ChatReply {
   stopReason: string | null;
   mediaFallback?: MediaTranscript;
   pdfTextFallback?: boolean;
+  receipt?: AnswerReceipt;
 }
 
 const MAX_HISTORY_MESSAGES = 10;
@@ -206,7 +209,9 @@ export const buildApiMessages = async (
   const apiMessages: ApiMessage[] = previousMessages
     .map((message) => ({
       role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
-      text: (getMessageText(message, false, language) +
+      // An answer goes back exactly as the server gave it (no appended note), so it can be verified.
+      ...(message.role === 'model' && message.receipt && { receipt: { id: message.receipt.id, key: message.receipt.key } }),
+      text: ((message.role === 'model' && message.receipt ? message.text.slice(0, message.receipt.length) : getMessageText(message, false, language)) +
         (message.attachment?.native && message.attachment.native.expiresAt <= Date.now()
           ? '\n[Earlier file has expired and is not available. Ask the user to attach it again if needed.]' : '')).slice(0, MAX_MESSAGE_CHARS),
       ...(message.role === 'user' && message.attachment?.media && { media: message.attachment.media }),
@@ -344,6 +349,7 @@ export const streamChatReply = async ({
     let receivedDone = false;
     let mediaFallback: MediaTranscript | undefined;
     let pdfTextFallback = false;
+    let receipt: { id: string; key: string } | undefined;
 
     const handleEvent = (event: StreamEvent | null) => {
       if (!event) return;
@@ -361,6 +367,7 @@ export const streamChatReply = async ({
         receivedDone = true;
         stopReason = event.stopReason;
         mediaFallback = event.mediaFallback; pdfTextFallback = event.pdfTextFallback || false;
+        receipt = event.receipt;
       } else if (event.type === 'error') {
         throw new ChatServiceError(event.message, {
           code: event.code,
@@ -391,7 +398,8 @@ export const streamChatReply = async ({
       throw new ChatServiceError('Empty response from service', { code: 'EMPTY_RESPONSE' });
     }
 
-    return { text: fullText, stopReason, ...(mediaFallback ? { mediaFallback } : {}), ...(pdfTextFallback ? { pdfTextFallback } : {}) };
+    return { text: fullText, stopReason, ...(mediaFallback ? { mediaFallback } : {}), ...(pdfTextFallback ? { pdfTextFallback } : {}),
+      ...(receipt ? { receipt: { ...receipt, length: fullText.length } } : {}) };
   } catch (error) {
     if (timedOut) {
       throw new ChatServiceError('Request timed out', { code: 'CLIENT_TIMEOUT', partialText: fullText });

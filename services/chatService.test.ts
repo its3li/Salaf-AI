@@ -28,6 +28,15 @@ afterEach(() => {
 });
 
 describe('buildApiMessages', () => {
+  it('sends an earlier answer exactly as the server gave it, with its receipt', async () => {
+    const history = [
+      message({ text: 'سؤال' }),
+      message({ role: 'model', text: 'الجواب\n\n> انقطع الجواب لطوله', receipt: { id: 'r'.repeat(22), key: 'k'.repeat(43), length: 6 } }),
+      message({ text: 'متابعة' }),
+    ];
+    const messages = await buildApiMessages(history, 'متابعة');
+    expect(messages[1]).toEqual({ role: 'assistant', text: 'الجواب', receipt: { id: 'r'.repeat(22), key: 'k'.repeat(43) } });
+  });
   it('sends every image in a bundle and never resends historical images', async () => {
     const images = [{ name: 'one.jpg', mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,YWJj' },
       { name: 'two.jpg', mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,ZGVm' }];

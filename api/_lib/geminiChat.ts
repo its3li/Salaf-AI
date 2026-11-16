@@ -7,8 +7,18 @@ import { RESEARCH_TOOLS, getResearchConfig, describeToolCall, runResearchTool, t
 import { recordMessage } from './stats.js';
 import { payloadImages, imageMessageCredits, MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_TOTAL_BYTES } from './imagePolicy.js';
 import { cachedAudioFallback, transcribeNativeMedia, NoSpeechError, type TranscriptionFallback } from './audioFallback.js';
+import { saveAnswerRecord, verifyContext, MAX_RECORD_QUESTION_CHARS, type RecordAttachment, type Receipt } from './answerRecords.js';
 
-interface Message { role: 'user' | 'assistant'; text: string; image?: string; images?: string[]; media?: MediaTranscript; native?: NativeFile; pdfText?: string }
+interface Message { role: 'user' | 'assistant'; text: string; image?: string; images?: string[]; media?: MediaTranscript; native?: NativeFile; pdfText?: string; receipt?: unknown }
+
+/** A note about what the question carried, for the shared copy; the files themselves are never kept. */
+const recordAttachment = (m: Message): RecordAttachment | undefined => {
+    const images = payloadImages(m).length;
+    if (images) return { kind: 'images', count: images };
+    if (m.native) return { kind: m.native.kind, title: m.native.title.slice(0, 200) };
+    if (m.media) return { kind: m.media.kind, title: m.media.title.slice(0, 200) };
+    return undefined;
+};
 interface Prompt {
     system: string;
     research: string;
@@ -103,6 +113,8 @@ export async function handleGeminiChat(req: VercelRequest, res: VercelResponse, 
         transcriptionFallbacks: 0, transcriptionCacheHits: 0, pdfTextFallbacks: 0 };
     let mediaFallback: TranscriptionFallback | null = null;
     let pdfTextFallback = false;
+    // Checked while the model works; the result only decides how this answer can be shared later.
+    const contextCheck = verifyContext(messages.slice(0, -1)).catch(() => ({ prev: null, ok: false }));
     try {
         const language: ReplyLanguage = ['ar', 'en', 'ur', 'fa'].includes(req.body.language) ? req.body.language : 'ar';
         const contents: GeminiContent[] = [];
@@ -223,9 +235,19 @@ export async function handleGeminiChat(req: VercelRequest, res: VercelResponse, 
             } else if (!answer || !['STOP', 'MAX_TOKENS'].includes(candidate?.finishReason || '')) {
                 throw new Error('Provider returned an incomplete answer');
             } else {
+                // Saved before it is sent, so the copy behind a share link is exactly this answer.
+                let receipt: Receipt | null = null;
+                try {
+                    const context = await contextCheck;
+                    const question = messages[messages.length - 1];
+                    receipt = await saveAnswerRecord({ q: question.text.slice(0, MAX_RECORD_QUESTION_CHARS), a: answer, at: Date.now(),
+                        lang: language, att: recordAttachment(question), prev: context.prev, ctx: messages.length - 1, ok: context.ok });
+                } catch (error) {
+                    console.warn('[api/chat] answer record not saved; this answer cannot be shared', { requestId, error: error instanceof Error ? error.message : String(error) });
+                }
                 send({ type: 'text', text: answer });
                 delivered = !clientGone;
-                send({ type: 'done', stopReason: candidate?.finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn', usage,
+                send({ type: 'done', stopReason: candidate?.finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn', usage, ...(receipt ? { receipt } : {}),
                     ...(mediaFallback ? { mediaFallback: (mediaFallback as TranscriptionFallback).media } : {}), ...(pdfTextFallback ? { pdfTextFallback: true } : {}) });
                 await recordMessage(req, language);
             }
