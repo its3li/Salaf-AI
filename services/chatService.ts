@@ -1,24 +1,29 @@
-import { Message, Attachment, MediaTranscript } from '../types';
+import { Message, Attachment, MediaTranscript, NativeFile } from '../types';
 import { compressImageDataUrl } from './attachments';
 import { formatTime } from './format';
 import { DEFAULT_LANGUAGE, type Language } from '../i18n/languages';
 import { MESSAGES } from '../i18n/messages';
 import { parseMessageSources } from './messageParsing';
+import { createClientUuid } from './ids';
+import { attachedImages } from './imageAttachments';
 
 /** Message shape accepted by /api/chat. */
 interface ApiMessage {
   role: 'user' | 'assistant';
   text: string;
   image?: string;
+  images?: string[];
   /** Sent back exactly as /api/media signed it. */
   media?: MediaTranscript;
+  native?: NativeFile;
+  pdfText?: string;
 }
 
 type StreamEvent =
   | { type: 'text'; text: string }
   | { type: 'status'; message: string }
   | { type: 'reset' }
-  | { type: 'done'; stopReason: string | null }
+  | { type: 'done'; stopReason: string | null; mediaFallback?: MediaTranscript; pdfTextFallback?: boolean }
   | { type: 'error'; code: string; message: string; requestId?: string };
 
 interface ApiErrorResponse {
@@ -39,6 +44,8 @@ export interface ChatQuota {
 export interface ChatReply {
   text: string;
   stopReason: string | null;
+  mediaFallback?: MediaTranscript;
+  pdfTextFallback?: boolean;
 }
 
 const MAX_HISTORY_MESSAGES = 10;
@@ -80,7 +87,7 @@ export const getClientId = () => {
   try {
     const existing = localStorage.getItem(CLIENT_ID_KEY);
     if (existing) return existing;
-    const created = crypto.randomUUID();
+    const created = createClientUuid();
     localStorage.setItem(CLIENT_ID_KEY, created);
     return created;
   } catch {
@@ -172,6 +179,7 @@ const getMessageText = (
   language: Language
 ) => {
   const { text, attachment } = message;
+  if (attachment?.native) return text.trim() || (attachment.native.kind === 'pdf' ? MESSAGES[language].attachments.defaultPrompt : MESSAGES[language].media.defaultPrompt);
   if (attachment?.media) return text.trim() || MESSAGES[language].media.defaultPrompt;
   if (attachment?.mimeType === 'application/pdf') return buildPdfPrompt(text, attachment, language);
   if (attachment && !isCurrentTurn) {
@@ -190,16 +198,20 @@ export const buildApiMessages = async (
   const usableMessages = history.slice(0, -1).filter((message) => !message.isError);
   let previousMessages = usableMessages.slice(-MAX_HISTORY_MESSAGES);
   // Follow-up questions about a video still need its transcript after it scrolls out of the window.
-  const latestMedia = [...usableMessages].reverse().find((message) => message.attachment?.media);
-  if (latestMedia && !previousMessages.includes(latestMedia) && !attachment?.media) {
+  const latestMedia = [...usableMessages].reverse().find((message) => message.attachment?.media || message.attachment?.native);
+  if (latestMedia && !previousMessages.includes(latestMedia) && !attachment?.media && !attachment?.native) {
     previousMessages = [latestMedia, ...previousMessages];
   }
 
   const apiMessages: ApiMessage[] = previousMessages
     .map((message) => ({
       role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
-      text: getMessageText(message, false, language).slice(0, MAX_MESSAGE_CHARS),
+      text: (getMessageText(message, false, language) +
+        (message.attachment?.native && message.attachment.native.expiresAt <= Date.now()
+          ? '\n[Earlier file has expired and is not available. Ask the user to attach it again if needed.]' : '')).slice(0, MAX_MESSAGE_CHARS),
       ...(message.role === 'user' && message.attachment?.media && { media: message.attachment.media }),
+      ...(message.role === 'user' && message.attachment?.native && message.attachment.native.expiresAt > Date.now() && { native: message.attachment.native }),
+      ...(message.attachment?.native?.kind === 'pdf' && message.attachment.native.expiresAt > Date.now() && message.attachment.extractedText && { pdfText: message.attachment.extractedText.slice(0, Math.max(0, 32000 - getMessageText(message, false, language).length)) }),
     }))
     .filter((message) => message.text.trim().length > 0);
 
@@ -207,13 +219,23 @@ export const buildApiMessages = async (
     role: 'user',
     text: getMessageText({ text, attachment }, true, language).slice(0, MAX_MESSAGE_CHARS),
     ...(attachment?.media && { media: attachment.media }),
+    ...(attachment?.native && { native: attachment.native }),
+    ...(attachment?.native?.kind === 'pdf' && attachment.extractedText && { pdfText: attachment.extractedText.slice(0, Math.max(0, 32000 - getMessageText({ text, attachment }, true, language).length)) }),
   };
   if (attachment?.mimeType.startsWith('image/') && attachment.data) {
     // Attachments are compressed when picked; this only matters for images saved by older versions.
     currentMessage.image = await compressImageDataUrl(attachment.data).catch(() => attachment.data);
   }
+  const images = attachedImages(attachment);
+  if (images.length) {
+    const data = await Promise.all(images.map(image => compressImageDataUrl(image.data).catch(() => image.data)));
+    delete currentMessage.image;
+    if (data.length === 1) currentMessage.image = data[0]; else currentMessage.images = data;
+  }
   apiMessages.push(currentMessage);
-
+  // Drop oldest history, not the user's current images, if a signed inline media reference makes
+  // the request larger than Vercel's body limit. The provider gets only the latest direct attachment.
+  while (apiMessages.length > 1 && new TextEncoder().encode(JSON.stringify({ messages: apiMessages, language })).length > 4 * 1024 * 1024) apiMessages.shift();
   return apiMessages;
 };
 
@@ -291,7 +313,7 @@ export const streamChatReply = async ({
     // A failed request is refunded on the server after these headers were computed, so only trust them
     // from successful answers and limit responses.
     const quota = response.ok || response.status === 429 ? readQuotaHeaders(response) : null;
-    if (quota) {
+    if (quota && !response.ok) {
       storeQuota(quota);
       onQuota?.(quota);
     }
@@ -320,6 +342,8 @@ export const streamChatReply = async ({
     let buffer = '';
     let stopReason: string | null = null;
     let receivedDone = false;
+    let mediaFallback: MediaTranscript | undefined;
+    let pdfTextFallback = false;
 
     const handleEvent = (event: StreamEvent | null) => {
       if (!event) return;
@@ -333,8 +357,10 @@ export const streamChatReply = async ({
         fullText = '';
         onText?.(fullText);
       } else if (event.type === 'done') {
+        if (quota) { storeQuota(quota); onQuota?.(quota); }
         receivedDone = true;
         stopReason = event.stopReason;
+        mediaFallback = event.mediaFallback; pdfTextFallback = event.pdfTextFallback || false;
       } else if (event.type === 'error') {
         throw new ChatServiceError(event.message, {
           code: event.code,
@@ -365,7 +391,7 @@ export const streamChatReply = async ({
       throw new ChatServiceError('Empty response from service', { code: 'EMPTY_RESPONSE' });
     }
 
-    return { text: fullText, stopReason };
+    return { text: fullText, stopReason, ...(mediaFallback ? { mediaFallback } : {}), ...(pdfTextFallback ? { pdfTextFallback } : {}) };
   } catch (error) {
     if (timedOut) {
       throw new ChatServiceError('Request timed out', { code: 'CLIENT_TIMEOUT', partialText: fullText });

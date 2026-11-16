@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
 import { readStats, statsDay, type DayStats } from './_lib/stats.js';
+import { cleanupNativeBlobs } from './_lib/nativeFiles.js';
 
 // ---------------------------------------------------------------------------
 // /api/stats posts yesterday's usage to the Discord channel every morning, just after the daily
@@ -60,6 +61,7 @@ const isAuthorized = (req: VercelRequest) => {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.query?.dryRun !== '1') await cleanupNativeBlobs().catch(() => {});
 
     const requested = typeof req.query?.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.day) ? req.query.day : null;
     const day = requested ?? statsDay(Date.now() - DAY_MS);

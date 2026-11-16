@@ -72,6 +72,7 @@ const App: React.FC = () => {
     let videoId: string | undefined;
     for (const message of currentMessages) {
       if (message.role === 'user' && message.attachment?.media?.videoId) videoId = message.attachment.media.videoId;
+      if (message.role === 'user' && message.attachment?.native?.videoId) videoId = message.attachment.native.videoId;
       else if (message.role === 'model' && videoId) map.set(message.id, videoId);
     }
     return map;

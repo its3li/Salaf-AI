@@ -1,4 +1,5 @@
 export type MediaKind = 'youtube' | 'audio' | 'video';
+export type { NativeFile } from './api/_lib/nativeFiles';
 
 /** A transcript made and signed by /api/media; sent back with the message as it is. */
 export interface MediaTranscript {
@@ -17,8 +18,12 @@ export interface Attachment {
   name: string;
   mimeType: string;
   data: string; // Data URL for images; empty for PDFs and audio/video (only the text is kept)
+  /** Multiple images are kept as one attachment; old single-image chats still use data. */
+  images?: Array<{ name: string; mimeType: string; data: string }>;
   /** Audio/video: the transcript the assistant reads instead of the file. */
   media?: MediaTranscript;
+  /** Signed direct Gemini input; no transcription service is used. */
+  native?: import('./api/_lib/nativeFiles').NativeFile;
   /** YouTube: the video's thumbnail. */
   thumbnailUrl?: string;
   extractedText?: string;

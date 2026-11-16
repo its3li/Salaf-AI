@@ -125,6 +125,7 @@ const getRequestBody = (fetchMock: ReturnType<typeof vi.fn>, call = 0) =>
   JSON.parse(String((fetchMock.mock.calls[call][1] as RequestInit).body));
 
 beforeEach(() => {
+  process.env.CHAT_PROVIDER = 'anthropic';
   process.env.ANTHROPIC_API_KEY = 'test-key';
 });
 
@@ -134,6 +135,7 @@ afterEach(() => {
   clearChatRateLimitForTests();
   for (const name of [
     'ANTHROPIC_API_KEY',
+    'CHAT_PROVIDER',
     'ANTHROPIC_BASE_URL',
     'CHAT_MODEL',
     'CHAT_EFFORT',

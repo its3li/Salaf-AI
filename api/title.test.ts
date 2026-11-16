@@ -45,6 +45,7 @@ const messageResponse = (text: string, stopReason = 'end_turn') =>
 const sentBody = (fetchMock: ReturnType<typeof vi.fn>) => JSON.parse(String(fetchMock.mock.calls[0][1].body));
 
 beforeEach(() => {
+  process.env.CHAT_PROVIDER = 'anthropic';
   process.env.ANTHROPIC_API_KEY = 'test-key';
   process.env.ANTHROPIC_BASE_URL = 'https://proxy.example.com/v1';
   delete process.env.TITLE_MODEL;
@@ -52,6 +53,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.CHAT_PROVIDER;
   vi.unstubAllGlobals();
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.ANTHROPIC_BASE_URL;

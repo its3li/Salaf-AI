@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUp, AudioLines, Clapperboard, Paperclip, Square, X } from 'lucide-react';
 
-import { Attachment, MediaKind, MediaTranscript } from '../types';
-import { AttachmentError, MAX_IMAGE_FILE_MB, MAX_PDF_FILE_MB, prepareAttachment } from '../services/attachments';
+import { Attachment, MediaKind, MediaTranscript, NativeFile } from '../types';
+import { AttachmentError, MAX_IMAGE_FILE_MB, MAX_PDF_FILE_MB, prepareAttachment, compressImageBundle } from '../services/attachments';
+import { attachedImages, bundleImages, MAX_IMAGES_PER_MESSAGE, imageMessageCredits } from '../services/imageAttachments';
 import { ChatQuota, formatResetTime } from '../services/chatService';
 import {
   MAX_MEDIA_FILE_MB,
@@ -17,6 +18,7 @@ import {
   uploadMediaFile,
   parseYoutubeId,
   waitForTranscript,
+  prepareNativePdf,
   type MediaAllowance,
   type MediaStage,
 } from '../services/media';
@@ -89,7 +91,9 @@ const describeMediaError = (error: unknown, t: Messages, language: Language) => 
     case 'YOUTUBE_UNAVAILABLE':
       return t.media.errors.youtube;
     case 'MEDIA_UNAVAILABLE':
-      return t.media.errors.unavailable;
+        return t.media.errors.unavailable;
+    case 'MEDIA_DURATION_UNKNOWN':
+        return t.media.errors.durationUnknown;
     case 'UPLOAD_FAILED':
       return t.media.errors.upload;
     case 'RATE_LIMITED':
@@ -130,6 +134,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined);
   const [isProcessingAttachment, setIsProcessingAttachment] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const attachmentProcessingRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
   const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null);
@@ -149,7 +154,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const isQuotaExhausted = quota?.remaining === 0;
   const isQueued = queuedText !== null;
   const isInputLocked = isLoading || isDisabled || isProcessingAttachment || isQuotaExhausted || isQueued;
-  const canSend = (input.trim().length > 0 || Boolean(attachment) || Boolean(pendingMedia)) && !isInputLocked;
+  const images = attachedImages(attachment);
+  const messageCredits = imageMessageCredits(images.length);
+  const insufficientImageCredits = images.length > 0 && !!quota && quota.remaining < messageCredits;
+  const canSend = (input.trim().length > 0 || Boolean(attachment) || Boolean(pendingMedia)) && !isInputLocked && !insufficientImageCredits;
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -209,6 +217,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       throw new MediaServiceError('MEDIA_DAILY_LIMIT', { resetAt: allowance.quota.resetAt });
     }
     if (durationSec && durationSec > allowance.maxSeconds) throw new MediaServiceError('MEDIA_TOO_LONG');
+    if (durationSec && durationSec > allowance.mediaRemainingSeconds) throw new MediaServiceError('MEDIA_DAILY_LIMIT', { resetAt: allowance.quota.resetAt });
     if (allowance.quota.remaining < credits + 1) {
       throw new MediaServiceError('NOT_ENOUGH_CREDITS', { resetAt: allowance.quota.resetAt });
     }
@@ -223,14 +232,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const notes = [
       t.media.rule,
       minutes === null && t.media.unknownLength,
-      durationSec && durationSec > allowance.mediaRemainingSeconds && t.media.overAllowance,
     ].filter(Boolean);
 
     const confirmed = await showDialog({
       type: 'proceed',
       title: kind === 'youtube' ? t.media.titleYoutube : t.media.titleFile,
       preview,
-      warning: t.media.warning,
+      warning: kind === 'youtube' ? t.media.youtubeWarning : t.media.warning,
       meters: [
         {
           label: t.media.creditsMeter,
@@ -256,8 +264,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return confirmed === true;
   };
 
-  const finishMedia = (media: MediaTranscript, mimeType: string, thumbnailUrl?: string) => {
-    const ready: Attachment = { name: media.title, mimeType, data: '', media, ...(thumbnailUrl && { thumbnailUrl }) };
+  const finishMedia = (media: MediaTranscript | NativeFile, mimeType: string, thumbnailUrl?: string) => {
+    const ready: Attachment = { name: media.title, mimeType, data: '',
+      ...('mimeType' in media ? { native: media } : { media }), ...(thumbnailUrl && { thumbnailUrl }) };
     setPendingMedia(null);
     mediaAbortRef.current = null;
     // A question sent while the transcript was being made goes out now.
@@ -298,16 +307,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       mediaAbortRef.current = controller;
       updateMediaStatus('preparing', { startedAt: Date.now() });
       setNow(Date.now());
-      const job = await startYoutube(link);
+      const job = await startYoutube(link, controller.signal);
       if (job.quota) onQuota?.(job.quota);
       const media = await waitForTranscript(job, { onStage, signal: controller.signal });
       finishMedia(media, 'video/youtube', video.thumbnailUrl);
     } catch (error) {
-      // A site without audio/video configured just treats the link as text.
-      if (error instanceof MediaServiceError && (error.code === 'MEDIA_UNAVAILABLE' || error.code === 'VALIDATION_ERROR')) {
-        setPendingMedia(null);
-        return;
-      }
+      // Never imply that the clip was analyzed if audio retrieval/configuration failed.
       failMedia(error);
     }
   };
@@ -341,11 +346,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       updateMediaStatus('uploading', { progress: 0, startedAt: Date.now() });
       setNow(Date.now());
       const blobUrl = await uploadMediaFile(file, {
+        native: allowance.mode === 'native',
         signal: controller.signal,
         onProgress: (progress) => updateMediaStatus('uploading', { progress }),
       });
       updateMediaStatus('transcribing');
-      const job = await startUpload(blobUrl, seconds, file.name);
+      const job = await startUpload(blobUrl, seconds, file.name, controller.signal);
       if (job.quota) onQuota?.(job.quota);
       const media = await waitForTranscript(job, { onStage, signal: controller.signal });
       finishMedia(media, file.type || 'audio/mpeg');
@@ -397,31 +403,56 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const processFile = async (file: File) => {
+  const processFiles = async (files: File[]) => {
+    if (!files.length || attachmentProcessingRef.current || pendingMedia) return;
+    const file = files[0];
     setAttachmentError(null);
+    const allImages = files.every(file => file.type.startsWith('image/'));
+    if (files.length > 1 && !allImages) { setAttachmentError(t.attachments.multipleImagesOnly); return; }
     if (isMediaFile(file)) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (!pendingMedia) void offerFile(file);
       return;
     }
+    attachmentProcessingRef.current = true;
     setIsProcessingAttachment(true);
 
     try {
-      setAttachment(await prepareAttachment(file));
+      if (allImages) {
+        const existing = attachedImages(attachment);
+        if (existing.length + files.length > MAX_IMAGES_PER_MESSAGE) { setAttachmentError(t.attachments.imageMessageLimit); return; }
+        const allowance = await getMediaAllowance().catch(() => null);
+        if (allowance) {
+          onQuota?.(allowance.quota);
+          if (allowance.imageRemainingCount !== undefined && existing.length + files.length > allowance.imageRemainingCount) {
+            setAttachmentError(t.attachments.imageDailyLimit); return;
+          }
+        }
+        const prepared = await Promise.all(files.map(prepareAttachment));
+        const combined = [...existing, ...prepared.map(image => ({ name: image.name, mimeType: image.mimeType, data: image.data }))];
+        setAttachment(bundleImages(await compressImageBundle(combined)));
+        return;
+      }
+      const prepared = await prepareAttachment(file);
+      if (prepared.mimeType === 'application/pdf') {
+        const native = await prepareNativePdf(file);
+        if (native) { prepared.native = native; delete prepared.extractionError; }
+      }
+      setAttachment(prepared);
     } catch (error) {
       console.error('Failed to read attachment:', error);
       setAttachmentError(
         error instanceof AttachmentError ? describeAttachmentError(error, t, format) : t.input.readFailed
       );
     } finally {
+      attachmentProcessingRef.current = false;
       setIsProcessingAttachment(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) void processFile(file);
+    void processFiles(Array.from(e.target.files || []));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -448,23 +479,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     e.stopPropagation();
     setIsDragging(false);
     dragCounterRef.current = 0;
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      void processFile(file);
-    }
+    void processFiles(Array.from(e.dataTransfer.files || []));
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) void processFile(file);
-        return;
-      }
-    }
+    const files = Array.from(items).filter(item => item.type.startsWith('image/')).map(item => item.getAsFile()).filter((file): file is File => !!file);
+    if (files.length) { e.preventDefault(); void processFiles(files); }
   };
 
   const removeAttachment = () => {
@@ -488,14 +510,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const mediaIcon = (kind: MediaKind) =>
+  const mediaIcon = (kind: MediaKind | 'pdf') =>
     kind === 'audio' ? (
       <AudioLines size={20} strokeWidth={1.9} aria-hidden="true" />
     ) : (
       <Clapperboard size={20} strokeWidth={1.9} aria-hidden="true" />
     );
 
-  const attachmentMedia = attachment?.media;
+  const attachmentMedia = attachment?.media || (attachment?.native?.kind !== 'pdf' ? attachment?.native : undefined);
 
   return (
     <div
@@ -545,7 +567,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </div>
         )}
 
-        {attachment && (
+        {images.length > 0 && <div className="mx-1 mt-1 mb-2 flex flex-wrap gap-2">
+          {images.map((image, index) => <div key={`${index}-${image.name}`} data-testid="image-preview" className="flex items-center gap-2 rounded-xl bg-surface-2 p-2">
+            <img src={image.data} alt={image.name} className="h-14 w-14 rounded-lg object-cover" />
+            <span className="max-w-24 truncate text-sm" dir="auto">{image.name}</span>
+            <button type="button" aria-label={`${t.input.removeAttachment}: ${image.name}`} onClick={() => {
+              setAttachment(bundleImages(images.filter((_, i) => i !== index))); setAttachmentError(null);
+            }} className="p-1 text-faint"><X size={14} aria-hidden="true" /></button>
+          </div>)}
+        </div>}
+        {attachment && !images.length && (
           <div className="mx-1 mt-1 mb-2 flex w-fit max-w-full items-center gap-3 rounded-2xl bg-surface-2 py-2 ps-2 pe-3 fade-up">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-3 text-gold-text">
               {attachment.thumbnailUrl ? (
@@ -562,7 +593,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <span className="truncate text-[0.9rem] font-medium" dir="auto">{attachment.name}</span>
               <span className="text-[0.8rem] text-faint">
                 {attachmentMedia
-                  ? `${t.media.kinds[attachmentMedia.kind]} · ${localizeDigits(formatClock(attachmentMedia.durationSec), language)} · ${t.media.ready}`
+                  ? `${attachmentMedia.kind === 'pdf' ? t.input.pdf : t.media.kinds[attachmentMedia.kind]} · ${localizeDigits(formatClock(attachmentMedia.durationSec), language)} · ${t.media.ready}`
                   : attachment.mimeType === 'application/pdf'
                     ? attachment.pageCount
                       ? t.input.pages(format(attachment.pageCount))
@@ -630,6 +661,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={handleFileSelect}
             className="hidden"
             accept="image/*,application/pdf,audio/*,video/*"
+            multiple
           />
 
           {canStop ? (
@@ -668,6 +700,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {attachmentError}
         </p>
       )}
+      {images.length > 0 && <p data-testid="image-credit-cost" className="mt-2 px-3 text-center text-[0.85rem] text-faint">
+        {t.attachments.imagePrice(format(images.length), format(messageCredits))}
+      </p>}
+      {insufficientImageCredits && <p role="alert" className="mt-2 px-3 text-[0.9rem] text-danger">{t.attachments.imageCreditsInsufficient}</p>}
       {quota && quota.remaining <= QUOTA_HINT_THRESHOLD && (
         <p data-testid="quota-hint" className="mt-2 text-center text-[0.85rem] text-faint">
           {isQuotaExhausted

@@ -26,6 +26,8 @@ import {
     type MediaTranscript,
 } from './_lib/media.js';
 import { recordMedia } from './_lib/stats.js';
+import { getChatProvider } from './_lib/gemini.js';
+import { handleNativeMedia } from './_lib/nativeMedia.js';
 
 // ---------------------------------------------------------------------------
 // /api/media turns a YouTube link or an uploaded audio/video file into a timestamped transcript.
@@ -128,8 +130,8 @@ const sendError = (
 
 const describeError = (error: unknown) => (error instanceof Error ? error.message.slice(0, 300) : String(error));
 
-const fetchJson = async <T>(url: string, init: RequestInit, timeoutMs: number): Promise<T> => {
-    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+const fetchJson = async <T>(url: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<T> => {
+    const response = await fetch(url, { ...init, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs) });
     const text = await response.text();
     if (!response.ok) throw new Error(`${new URL(url).host} responded with ${response.status}: ${text.slice(0, 200)}`);
     return JSON.parse(text) as T;
@@ -233,26 +235,29 @@ const getYoutubeMeta = async (videoId: string): Promise<YoutubeMeta | null> => {
 // ---------------------------------------------------------------------------
 
 /** Asks PaxSenix to prepare the audio of a video; returns the URL to poll for the result. */
-const requestYoutubeAudio = async (videoId: string): Promise<string> => {
+const requestYoutubeAudio = async (videoId: string, signal?: AbortSignal): Promise<string> => {
     const key = process.env.PAXSENIX_API_KEY;
     if (!key) throw new Error('PAXSENIX_API_KEY is not set');
     const url = encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`);
     const payload = await fetchJson<{ ok?: boolean; task_url?: string; message?: string }>(
         `${PAXSENIX}/dl/ytmp3?url=${url}&format=mp3`,
         { headers: { Authorization: `Bearer ${key}` } },
-        20_000
+        20_000,
+        signal
     );
     if (!payload.ok || !payload.task_url) throw new Error(payload.message || 'PaxSenix returned no task');
     return payload.task_url;
 };
 
 /** One look at a PaxSenix job: the audio URL when ready, null while working; throws when it failed. */
-const checkYoutubeAudio = async (taskUrl: string): Promise<string | null> => {
+const checkYoutubeAudio = async (taskUrl: string, signal?: AbortSignal): Promise<string | null> => {
+    if (new URL(taskUrl).origin !== PAXSENIX) throw new Error('Invalid audio preparation task URL');
     const key = process.env.PAXSENIX_API_KEY as string;
     const task = await fetchJson<{ status?: string; url?: string; message?: string }>(
         taskUrl,
         { headers: { Authorization: `Bearer ${key}` } },
-        15_000
+        15_000,
+        signal
     );
     if (task.status === 'done' && task.url) return task.url;
     if (/fail|error/i.test(task.status ?? '')) throw new Error(task.message || `PaxSenix task ${task.status}`);
@@ -260,17 +265,36 @@ const checkYoutubeAudio = async (taskUrl: string): Promise<string | null> => {
 };
 
 /** PaxSenix's second YouTube audio source; slower (~30 s) but answers in one request. */
-const fetchYoutubeAudioDirect = async (videoId: string): Promise<string> => {
+const fetchYoutubeAudioDirect = async (videoId: string, signal?: AbortSignal): Promise<string> => {
     const key = process.env.PAXSENIX_API_KEY as string;
     const url = encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`);
     const payload = await fetchJson<{ ok?: boolean; directLink?: string; downloads?: string; message?: string }>(
         `${PAXSENIX}/yt/ytaudio?url=${url}`,
         { headers: { Authorization: `Bearer ${key}` } },
-        90_000
+        90_000,
+        signal
     );
     const link = payload.directLink || payload.downloads;
     if (!payload.ok || !link) throw new Error(payload.message || 'PaxSenix returned no audio link');
     return link;
+};
+
+/** Native mode uses the same two audio sources as the previous workflow, without transcription. */
+const getNativeYoutubeAudio = async (videoId: string, signal?: AbortSignal): Promise<string> => {
+    try { return await fetchYoutubeAudioDirect(videoId, signal); }
+    catch (error) {
+        if (signal?.aborted) throw error;
+        const task = await requestYoutubeAudio(videoId, signal);
+        for (;;) {
+            const url = await checkYoutubeAudio(task, signal);
+            if (url) return url;
+            await new Promise<void>((resolve, reject) => {
+                const abort = () => { clearTimeout(timer); reject(signal?.reason); };
+                const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, 2000);
+                signal?.addEventListener('abort', abort, { once: true });
+            });
+        }
+    }
 };
 
 interface AssemblyTranscript {
@@ -705,6 +729,7 @@ const missingConfiguration = () => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (getChatProvider() === 'gemini') return handleNativeMedia(req, res, getYoutubeMeta, getNativeYoutubeAudio);
     if (req.method !== 'POST') return sendError(res, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
 
     const missing = missingConfiguration();

@@ -9,6 +9,9 @@ import {
     type ReplyLanguage,
 } from './_lib/research.js';
 import { getBaseUrl } from './_lib/anthropic.js';
+import { getChatProvider } from './_lib/gemini.js';
+import { handleGeminiChat } from './_lib/geminiChat.js';
+import { payloadImages, imageMessageCredits, MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_TOTAL_BYTES } from './_lib/imagePolicy.js';
 import { formatTimestamp, getSigningSecret, verifyTranscript, type MediaTranscript } from './_lib/media.js';
 import { recordMessage } from './_lib/stats.js';
 import {
@@ -48,6 +51,8 @@ type ApiErrorCode =
     | 'VALIDATION_ERROR'
     | 'RATE_LIMITED'
     | 'DAILY_LIMIT_REACHED'
+    | 'IMAGE_DAILY_LIMIT'
+    | 'INSUFFICIENT_CREDITS'
     | 'CONFIGURATION_ERROR'
     | 'UPSTREAM_BUSY'
     | 'UPSTREAM_ERROR'
@@ -60,6 +65,7 @@ interface ChatMessagePayload {
     role: 'user' | 'assistant';
     text: string;
     image?: string;
+    images?: string[];
     /** A transcript produced and signed by /api/media. */
     media?: MediaTranscript;
 }
@@ -237,6 +243,17 @@ const isValidMessage = (message: unknown): message is ChatMessagePayload => {
         );
     }
 
+    if (candidate.images !== undefined) {
+        if (candidate.image !== undefined || candidate.role !== 'user' || !Array.isArray(candidate.images) ||
+            !candidate.images.length || candidate.images.length > MAX_IMAGES_PER_MESSAGE) return false;
+        let size = 0;
+        return candidate.images.every(image => {
+            const match = typeof image === 'string' ? IMAGE_DATA_URL_PATTERN.exec(image) : null;
+            if (!match) return false;
+            size += getBase64ByteLength(match[2]);
+            return size <= MAX_IMAGE_TOTAL_BYTES;
+        });
+    }
     if (candidate.image === undefined) {
         return candidate.text.trim().length > 0;
     }
@@ -258,21 +275,19 @@ const toAnthropicMessages = (messages: ChatMessagePayload[]): Anthropic.MessageP
         if (message.media) {
             return { role: 'user', content: describeMedia(message.media, message.text) };
         }
-        const match = message.image ? IMAGE_DATA_URL_PATTERN.exec(message.image) : null;
-        if (!match) {
+        const matches = payloadImages(message).map(image => IMAGE_DATA_URL_PATTERN.exec(image)!);
+        if (!matches.length) {
             return { role: message.role, content: message.text };
         }
 
-        const content: Anthropic.ContentBlockParam[] = [
-            {
+        const content: Anthropic.ContentBlockParam[] = matches.map(match => ({
                 type: 'image',
                 source: {
                     type: 'base64',
                     media_type: match[1] as Anthropic.Base64ImageSource['media_type'],
                     data: match[2],
                 },
-            },
-        ];
+            }));
         if (message.text.trim()) {
             content.push({ type: 'text', text: message.text });
         }
@@ -340,6 +355,10 @@ function setCorsHeaders(req: VercelRequest, res: VercelResponse): boolean {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!setCorsHeaders(req, res)) return;
+    if (getChatProvider() === 'gemini') {
+        return handleGeminiChat(req, res, { system: SYSTEM_INSTRUCTION, research: RESEARCH_INSTRUCTION,
+            legacyMedia: MEDIA_INSTRUCTION, language: languageInstruction, describeMedia });
+    }
 
     const requestId = createRequestId();
     const startedAt = Date.now();
@@ -365,7 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         messages.length === 0 ||
         messages.length > maxMessages ||
         !messages.every(isValidMessage) ||
-        messages[messages.length - 1].role !== 'user'
+        messages[messages.length - 1].role !== 'user' || messages.slice(0, -1).some(message => payloadImages(message).length)
     ) {
         console.warn('[api/chat] invalid payload', {
             ...logBase,
@@ -396,7 +415,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         onClientGone();
     });
 
-    const reservation = await reserveMessageCredit(req);
+    const imageCount = payloadImages(messages[messages.length - 1]).length;
+    const reservation = await reserveMessageCredit(req, { images: imageCount, credits: imageMessageCredits(imageCount) });
     setQuotaHeaders(res, reservation.quota);
     if (!reservation.allowed) {
         res.setHeader('Retry-After', String(reservation.retryAfterSeconds));
@@ -405,6 +425,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reason: reservation.reason,
             retryAfterSeconds: reservation.retryAfterSeconds,
         });
+        if (reservation.reason === 'images' || reservation.reason === 'credits') {
+            return sendJsonError(res, 429, reservation.reason === 'images' ? 'IMAGE_DAILY_LIMIT' : 'INSUFFICIENT_CREDITS',
+                'Not enough image allowance or credits', requestId, { resetAt: reservation.quota?.resetAt });
+        }
         return reservation.reason === 'daily'
             ? sendJsonError(res, 429, 'DAILY_LIMIT_REACHED', 'Daily credit limit reached', requestId, {
                   resetAt: reservation.quota?.resetAt,
