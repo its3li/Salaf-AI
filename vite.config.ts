@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title', 'media', 'stats']);
+const API_ROUTES = new Set(['chat', 'hadith', 'feedback', 'geo', 'title', 'media', 'stats', 'share', 'shared']);
 
 const readBody = (req: IncomingMessage) =>
   new Promise<string>((resolve, reject) => {
@@ -31,7 +31,7 @@ const localApi = (): Plugin => ({
       if (!route || !API_ROUTES.has(route)) return next();
 
       try {
-        const raw = req.method === 'POST' ? await readBody(req) : '';
+        const raw = req.method === 'POST' || req.method === 'DELETE' ? await readBody(req) : '';
         const request = Object.assign(req, {
           query: Object.fromEntries(url.searchParams),
           body: raw ? JSON.parse(raw) : undefined,

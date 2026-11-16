@@ -82,6 +82,7 @@ export interface Store {
     setText(key: string, value: string, ttlSeconds: number): Promise<void>;
     /** Sets the value only when the key does not exist yet; true when this call set it (a lock). */
     setTextIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean>;
+    deleteText(key: string): Promise<void>;
 }
 
 const memoryCounters = new Map<string, { count: number; expiresAt: number }>();
@@ -126,6 +127,9 @@ const memoryStore: Store = {
         if (memoryTexts.has(key)) return false;
         memoryTexts.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
         return true;
+    },
+    async deleteText(key) {
+        memoryTexts.delete(key);
     },
 };
 
@@ -234,6 +238,13 @@ export const getStore = ({ strict = false } = {}): Store => {
                     return reply?.result === 'OK';
                 },
                 () => memoryStore.setTextIfAbsent(key, value, ttlSeconds)
+            ),
+        deleteText: (key) =>
+            withFallback(
+                async () => {
+                    await runRedisPipeline(config, [['DEL', key]]);
+                },
+                () => memoryStore.deleteText(key)
             ),
     };
 };

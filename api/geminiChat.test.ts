@@ -7,6 +7,7 @@ import { clearMemoryStoreForTests, getMediaAllowance } from './_lib/limits';
 import { runResearchTool } from './_lib/research';
 import { cachedAudioFallback, transcribeNativeMedia } from './_lib/audioFallback';
 import { signTranscript } from './_lib/media';
+import { readAnswerRecord } from './_lib/answerRecords';
 vi.mock('./_lib/audioFallback.js', () => ({ cachedAudioFallback: vi.fn(), transcribeNativeMedia: vi.fn(), NoSpeechError: class extends Error {} }));
 
 vi.mock('./_lib/research.js', async (importOriginal) => {
@@ -41,6 +42,18 @@ afterEach(() => {
 });
 
 describe('Gemini chat route', () => {
+  it('saves each answer for sharing and links a follow-up to the answer before it', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => result()); vi.stubGlobal('fetch', fetchMock);
+    const first = response(); await handler(request([{ role: 'user', text: 'سؤال' }]), first as unknown as VercelResponse);
+    const receipt = events(first).find(e => e.type === 'done').receipt;
+    expect(receipt).toMatchObject({ id: expect.any(String), key: expect.any(String) });
+    const second = response();
+    await handler(request([{ role: 'user', text: 'سؤال' }, { role: 'assistant', text: 'الجواب المختصر.', receipt }, { role: 'user', text: 'وماذا بعد؟' }]), second as unknown as VercelResponse);
+    const followUp = events(second).find(e => e.type === 'done').receipt;
+    const record = await readAnswerRecord(followUp);
+    expect(record).toMatchObject({ q: 'وماذا بعد؟', a: 'الجواب المختصر.', prev: receipt.id, ctx: 2, ok: true });
+    expect(first.chunks.join('')).not.toContain('"q"');
+  });
   it('uses the private Gemini endpoint, returns text, and counts thinking at the supplied rates', async () => {
     const fetchMock = vi.fn().mockResolvedValue(result()); vi.stubGlobal('fetch', fetchMock);
     const res = response(); await handler(request([{ role: 'user', text: 'سؤال' }]), res as unknown as VercelResponse);

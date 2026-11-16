@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AudioLines, BookOpen, Check, ChevronDown, Clapperboard, Copy, RotateCw, ThumbsDown, X } from 'lucide-react';
+import { AudioLines, BookOpen, Check, ChevronDown, Clapperboard, Copy, RotateCw, Share2, ThumbsDown, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Attachment, Message } from '../types';
@@ -18,6 +18,8 @@ interface MessageBubbleProps {
   isNew?: boolean;
   onRetry?: (messageId: string) => void;
   onFeedback?: (messageId: string) => Promise<boolean>;
+  /** Shown only for answers the server saved a copy of (they carry a receipt). */
+  onShare?: (messageId: string) => void;
   /** The YouTube video this answer is about; its "[12:34]" times become links to that moment. */
   videoId?: string;
 }
@@ -157,6 +159,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isNew = false,
   onRetry,
   onFeedback,
+  onShare,
   videoId,
 }) => {
   const { t, language } = useI18n();
@@ -448,6 +451,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
             )}
           </IconButton>
+          {onShare && message.receipt && (
+            <IconButton label={t.share.button} onClick={() => onShare(message.id)} data-testid="share-message">
+              <Share2 size={16} strokeWidth={1.9} aria-hidden="true" />
+            </IconButton>
+          )}
           {onFeedback && (
             <IconButton label={feedbackLabel} onClick={handleFeedbackClick} data-testid="feedback-message">
               <ThumbsDown size={16} strokeWidth={1.9} fill={hasSubmittedFeedback ? 'currentColor' : 'none'} aria-hidden="true" />

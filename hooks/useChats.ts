@@ -338,7 +338,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
           return { ...message, attachment };
         }));
       }
-      appendAnswer({ text: reply.text + truncationNote });
+      appendAnswer({ text: reply.text + truncationNote, ...(reply.receipt ? { receipt: reply.receipt } : {}) });
       completedAnswer = reply.text;
     } catch (error) {
       if (controller.signal.aborted) {
@@ -383,6 +383,29 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
         chat.id === chatId && chat.title === provisionalTitle ? { ...chat, title: generated } : chat
       )
     );
+  };
+
+  /** Remembers (or forgets) that an answer was shared from this browser. */
+  const setMessageShare = (messageId: string, share: Message['share']) => {
+    updateChats((prevChats) =>
+      prevChats.map((chat) =>
+        chat.messages.some((message) => message.id === messageId)
+          ? {
+              ...chat,
+              messages: chat.messages.map((message) =>
+                message.id === messageId ? { ...message, share } : message
+              ),
+            }
+          : chat
+      )
+    );
+  };
+
+  /** Opens a shared conversation as a new chat of the user's own, so they can keep asking. */
+  const continueSharedConversation = (title: string, messages: Message[]) => {
+    const newChat = { ...createEmptyChat(title), messages };
+    updateChats((prevChats) => [newChat, ...prevChats]);
+    setSelectedChatId(newChat.id);
   };
 
   const createNewChat = (force: boolean = false) => {
@@ -673,5 +696,7 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
     handleClearAllChats,
     handleExportChats,
     handleImportChats,
+    setMessageShare,
+    continueSharedConversation,
   };
 };

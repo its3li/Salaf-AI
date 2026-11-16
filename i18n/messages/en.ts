@@ -32,7 +32,7 @@ export const en: Messages = {
       { topic: 'Tafsir', question: 'What does Ayat al-Kursi mean, briefly?' },
     ],
     disclaimer:
-      'A research assistant, not a mufti. Personal fatwas and new issues go to the scholars. Your chats are saved on your device only.',
+      'A research assistant, not a mufti. Personal fatwas and new issues go to the scholars. Your chats are saved on your device.',
   },
 
   chat: {
@@ -161,6 +161,31 @@ export const en: Messages = {
     copied: 'Copied',
     feedback: 'Something wrong in this answer?',
     feedbackAgain: 'Send another note',
+  },
+
+  share: {
+    button: 'Share this conversation',
+    title: 'Share this conversation',
+    creating: 'Creating the link…',
+    explain: "Anyone with the link can read this conversation up to this answer. It's saved exactly as Salaf AI answered and can't be edited. Attached files themselves aren't shared.",
+    copy: 'Copy link',
+    copied: 'Link copied',
+    shareVia: 'Share…',
+    stop: 'Stop sharing',
+    stopped: 'Sharing stopped. The link no longer works.',
+    close: 'Close',
+    errorExpired: 'This answer can no longer be shared. Answers can be shared for 180 days.',
+    errorGeneric: "The link couldn't be created. Try again shortly.",
+    pageLabel: 'Shared conversation',
+    verified: "Saved exactly as Salaf AI answered; it can't be edited.",
+    partial: 'This conversation had earlier messages that are not shown here.',
+    sharedOn: (date: string) => `Shared ${date}`,
+    continue: 'Continue this conversation',
+    askOwn: 'Ask your own question',
+    notFound: "This link doesn't exist or is no longer shared.",
+    loading: 'Loading the conversation…',
+    attachedImages: (count: number) => (count === 1 ? 'An image was attached (not shown)' : `${count} images were attached (not shown)`),
+    attachedFile: (title: string) => `File attached: ${title} (not shown)`,
   },
 
   research: {
@@ -362,7 +387,7 @@ export const en: Messages = {
       },
       {
         question: 'Where are my chats saved?',
-        answer: 'Only on your device. You can export them to a file and import them on another device from the sidebar.',
+        answer: "On your device. The server also keeps an encrypted copy of each answer for 180 days so you can share it; the key stays on your device, so the server can't read it unless you share that conversation. You can export your chats to a file and import them on another device from the sidebar.",
       },
       {
         question: 'What if I find a mistake in an answer?',

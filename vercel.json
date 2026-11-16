@@ -6,6 +6,11 @@
   "crons": [{ "path": "/api/stats", "schedule": "10 0 * * *" }],
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },
+    {
+      "source": "/s/:id",
+      "destination": "/api/shared?id=:id",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [

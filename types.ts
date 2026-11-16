@@ -41,6 +41,17 @@ export interface Message {
   timestamp: Date;
   isError?: boolean;
   errorCode?: string;
+  /** The server's saved copy of this answer (see api/_lib/answerRecords); needed to share it. */
+  receipt?: AnswerReceipt;
+  /** Set once this answer was shared from this browser; the token stops sharing. */
+  share?: { id: string; deleteToken: string };
+}
+
+export interface AnswerReceipt {
+  id: string;
+  key: string;
+  /** Length of the answer as the server sent it, before any note the app appended. */
+  length: number;
 }
 
 export interface ChatSession {
