@@ -7,7 +7,7 @@ import { clearMemoryStoreForTests } from './limits';
 import { clearBlogMemoryForTests, publishQuestion, queueQuestion, readPost, runDaily, savePost, type BlogPost } from './blog';
 import blogHandler from '../blog';
 import adminHandler from '../blogadmin';
-import sitemapHandler from '../sitemap';
+import blogPageHandler from '../blogpage';
 import { renderPostPage } from '../blogpage';
 
 vi.mock('./gemini.js', async (importOriginal) => ({
@@ -174,7 +174,7 @@ describe('public pages', () => {
   it('lists every language of every post in the sitemap', async () => {
     await savePost(samplePost());
     const res = response();
-    await sitemapHandler({ method: 'GET', headers: {}, query: {} } as unknown as VercelRequest, res as unknown as VercelResponse);
+    await blogPageHandler({ method: 'GET', headers: {}, query: { sitemap: '1' } } as unknown as VercelRequest, res as unknown as VercelResponse);
     expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/blog/witr-ruling</loc>');
     expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/en/blog/witr-ruling</loc>');
   });

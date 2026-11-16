@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { clearMemoryStoreForTests } from './limits';
 import { readAnswerRecord, saveAnswerRecord, verifyContext, type Receipt } from './answerRecords';
 import { buildConversation, createShare, deleteShare, readShare } from './shares';
-import { renderSharePage, plainAnswer } from '../shared';
+import { renderSharePage, plainAnswer } from './sharedPage';
 
 afterEach(() => clearMemoryStoreForTests());
 

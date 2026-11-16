@@ -4,6 +4,7 @@ import { BLOG_LANGUAGES, listPublishedSlugs, readPost, readPosts, visibleLanguag
 import type { ReplyLanguage } from './_lib/research.js';
 import { SITE, SITE_NAME, DIR, applyPageMeta, clip, escapeHtml, injectRoot, loadTemplate, paragraphs, plainAnswer } from './_lib/pageTemplate.js';
 import { postSummary, shownLanguage } from './blog.js';
+import { handleSitemap } from './_lib/sitemap.js';
 
 /*
  * The blog's pages for link previews and search engines (see vercel.json): /blog and /blog/<slug>
@@ -102,6 +103,8 @@ export const renderIndexPage = (template: string, posts: BlogPost[], lang: Reply
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // /sitemap.xml comes here too (vercel.json), keeping within Vercel's function limit.
+    if (req.query.sitemap === '1') return handleSitemap(req, res);
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.setHeader('Allow', 'GET, HEAD');
         return res.status(405).end();

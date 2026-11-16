@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
-import { readShare, SHARE_ID_PATTERN, type SharedConversation } from './_lib/shares.js';
+import { readShare, SHARE_ID_PATTERN, type SharedConversation } from './shares.js';
 import {
     SITE,
     SITE_NAME,
@@ -12,12 +12,12 @@ import {
     loadTemplate,
     paragraphs,
     plainAnswer,
-} from './_lib/pageTemplate.js';
+} from './pageTemplate.js';
 
 export { plainAnswer };
 
 /*
- * /s/<id> lands here (see vercel.json). It serves the app's own page with the shared question as
+ * /s/<id> lands here through /api/share?page=1 (see vercel.json; one function, for Vercel's limit). It serves the app's own page with the shared question as
  * its title and preview, and the conversation as plain text inside it (see _lib/pageTemplate).
  */
 
@@ -53,7 +53,7 @@ export const renderSharePage = (template: string, share: SharedConversation | nu
     return injectRoot(html, article);
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export async function handleSharePage(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.setHeader('Allow', 'GET, HEAD');
         return res.status(405).end();

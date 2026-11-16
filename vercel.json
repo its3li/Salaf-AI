@@ -10,7 +10,7 @@
   ],
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },
-    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/sitemap.xml", "destination": "/api/blogpage?sitemap=1" },
     {
       "source": "/blog",
       "destination": "/api/blogpage?lang=ar",
@@ -33,7 +33,7 @@
     },
     {
       "source": "/s/:id",
-      "destination": "/api/shared?id=:id",
+      "destination": "/api/share?id=:id&page=1",
       "missing": [{ "type": "query", "key": "app" }]
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

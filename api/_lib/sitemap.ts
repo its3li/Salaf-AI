@@ -1,14 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
-import { BLOG_LANGUAGES, listPublishedSlugs, readPosts, visibleLanguages } from './_lib/blog.js';
-import { SITE } from './_lib/pageTemplate.js';
-import { blogPath } from './blogpage.js';
+import { BLOG_LANGUAGES, listPublishedSlugs, readPosts, visibleLanguages } from './blog.js';
+import { SITE } from './pageTemplate.js';
 
-// /sitemap.xml (see vercel.json): the fixed pages, then every blog post in each of its languages.
+const blogPath = (lang: string, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${slug}` : ''}`;
+
+// /sitemap.xml, served by api/blogpage.ts (see vercel.json): the fixed pages, then every blog post in each of its languages.
 
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+export async function handleSitemap(_req: VercelRequest, res: VercelResponse) {
     const urls: Array<{ loc: string; lastmod?: string; priority: string; alternates?: Array<{ lang: string; loc: string }> }> = [
         { loc: `${SITE}/`, priority: '1.0' },
         { loc: `${SITE}/about`, priority: '0.8' },
