@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
 import { getBaseUrl } from './_lib/anthropic.js';
 import { getChatProvider, generateGemini } from './_lib/gemini.js';
+import { allowBurst, clearMemoryStoreForTests } from './_lib/limits.js';
 
 // Names a conversation after its first exchange, with a small fast model on the same provider and
 // key as the answers. It is a nicety: any failure leaves the title the browser already gave it.
@@ -32,7 +33,10 @@ const isRateLimited = (req: VercelRequest) => {
     return entry.count > LIMIT_PER_WINDOW;
 };
 
-export const clearTitleRateLimitForTests = () => requests.clear();
+export const clearTitleRateLimitForTests = () => {
+    requests.clear();
+    clearMemoryStoreForTests();
+};
 
 const systemPrompt = (languageName: string) =>
     `You name conversations in an Islamic research app. Reply with only a title for the conversation below: ` +
@@ -68,7 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Invalid request' });
     }
 
-    if (isRateLimited(req)) {
+    // The shared per-minute count holds across instances, so a script can't spend model calls freely.
+    if (isRateLimited(req) || !(await allowBurst(req, 'title', LIMIT_PER_WINDOW))) {
         return res.status(429).json({ error: 'Too many requests' });
     }
 

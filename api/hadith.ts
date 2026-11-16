@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
 import { fetchDorarResults } from './_lib/research.js';
+import { allowBurst, clearMemoryStoreForTests } from './_lib/limits.js';
 
 // Public hadith lookup for the landing page: a visitor types a fragment and sees how Dorar.net's
 // scholars graded it. It never calls the model, so it does not use the daily question allowance.
@@ -25,7 +26,10 @@ const isRateLimited = (req: VercelRequest) => {
     return entry.count > LIMIT_PER_MINUTE;
 };
 
-export const clearHadithRateLimitForTests = () => lookups.clear();
+export const clearHadithRateLimitForTests = () => {
+    lookups.clear();
+    clearMemoryStoreForTests();
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'GET') {
@@ -37,7 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR' } });
     }
 
-    if (isRateLimited(req)) {
+    // The per-instance count answers instantly; the shared one holds across every instance.
+    if (isRateLimited(req) || !(await allowBurst(req, 'hadith', LIMIT_PER_MINUTE))) {
         return res.status(429).json({ error: { code: 'RATE_LIMITED' } });
     }
 
@@ -50,8 +55,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .sort((a, b) => rank(a.entry.source) - rank(b.entry.source) || a.index - b.index)
             .slice(0, MAX_RESULTS)
             .map(({ entry }) => entry);
-        // Gradings do not change; let Vercel's CDN answer repeated lookups for a day.
-        res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        // Gradings do not change; let Vercel's CDN answer repeated lookups for a day. Results still
+        // missing their Dorar links are held briefly, since the links finish loading in the background.
+        const complete = results.length === 0 || results.some((entry) => 'link' in entry && entry.link);
+        res.setHeader(
+            'Cache-Control',
+            complete ? 'public, s-maxage=86400, stale-while-revalidate=604800' : 'public, s-maxage=300'
+        );
         return res.status(200).json({
             query,
             source: `https://dorar.net/hadith/search?q=${encodeURIComponent(query)}`,
