@@ -15,6 +15,9 @@ import { CustomDialog } from './components/CustomDialog';
 import { ShareDialog } from './components/ShareDialog';
 import { ShareView } from './components/ShareView';
 import { shareIdFromPath } from './services/shareService';
+import { BlogView } from './components/BlogView';
+import { AdminView } from './components/AdminView';
+import { blogPath, parseBlogPath } from './services/blogService';
 import type { Message } from './types';
 import { useChats } from './hooks/useChats';
 import { usePwaInstall } from './hooks/usePwaInstall';
@@ -23,19 +26,24 @@ import { useTheme } from './hooks/useTheme';
 import { runViewTransition } from './services/viewTransition';
 import { useI18n } from './i18n/context';
 
-type ViewState = 'chat' | 'about' | 'share';
+type ViewState = 'chat' | 'about' | 'share' | 'blog' | 'admin';
 
 const ABOUT_PATH = '/about';
+const ADMIN_PATH = '/admin';
 
-const viewFromPath = (): ViewState => {
-  if (typeof window === 'undefined') return 'chat';
-  if (window.location.pathname.startsWith(ABOUT_PATH)) return 'about';
-  return shareIdFromPath(window.location.pathname) ? 'share' : 'chat';
+const viewFromPath = (pathname: string): ViewState => {
+  if (pathname.startsWith(ABOUT_PATH)) return 'about';
+  if (pathname.replace(/\/$/, '') === ADMIN_PATH) return 'admin';
+  if (parseBlogPath(pathname)) return 'blog';
+  return shareIdFromPath(pathname) ? 'share' : 'chat';
 };
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(viewFromPath);
-  const [shareId, setShareId] = useState(() => shareIdFromPath(window.location.pathname));
+  // The address decides the page; every page change goes through goTo so Back and Forward work.
+  const [path, setPath] = useState(() => window.location.pathname);
+  const view = viewFromPath(path);
+  const shareId = shareIdFromPath(path);
+  const blogRoute = parseBlogPath(path);
   const [shareTarget, setShareTarget] = useState<{ messages: Message[]; messageId: string } | null>(null);
   const [showIntro] = useState(() => document.documentElement.classList.contains('intro-playing'));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -46,7 +54,7 @@ const App: React.FC = () => {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { theme, toggleTheme } = useTheme();
   const { dialogState, setInputValue, showDialog, handleConfirm, handleCancel } = useAppDialog();
   const { isInstalled, canPromptInstall, promptInstall, isGuideOpen, openInstallGuide, closeInstallGuide } =
@@ -105,15 +113,12 @@ const App: React.FC = () => {
   // The tab title follows the page and the interface language.
   useEffect(() => {
     // A shared conversation names its own tab after the question (see ShareView).
-    if (view === 'share') return;
+    if (view === 'share' || view === 'blog' || view === 'admin') return;
     document.title = view === 'about' ? t.meta.aboutTitle : t.meta.title;
   }, [view, t]);
 
   useEffect(() => {
-    const handlePopState = () => {
-      setView(viewFromPath());
-      setShareId(shareIdFromPath(window.location.pathname));
-    };
+    const handlePopState = () => setPath(window.location.pathname);
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -143,14 +148,16 @@ const App: React.FC = () => {
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [lastArrivedMessageId]);
 
-  const navigate = (next: ViewState) => {
-    window.history.pushState(null, '', next === 'about' ? ABOUT_PATH : next === 'share' && shareId ? `/s/${shareId}` : '/');
+  const goTo = (nextPath: string) => {
+    window.history.pushState(null, '', nextPath);
     runViewTransition('page', () => {
-      setView(next);
+      setPath(nextPath);
       setIsSidebarOpen(false);
     });
     window.scrollTo(0, 0);
   };
+
+  const navigate = (next: 'chat' | 'about') => goTo(next === 'about' ? ABOUT_PATH : '/');
 
   const retryableErrorMessageId = useMemo(() => {
     if (isActiveChatLoading || !activeChat || activeChat.messages.length < 2) return null;
@@ -213,7 +220,23 @@ const App: React.FC = () => {
         />
       )}
 
-      {view === 'share' && shareId ? (
+      {view === 'admin' ? (
+        <AdminView onExit={() => navigate('chat')} />
+      ) : view === 'blog' && blogRoute ? (
+        <BlogView
+          lang={blogRoute.lang}
+          slug={blogRoute.slug}
+          onNavigate={goTo}
+          onAskOwn={() => {
+            createNewChat(false);
+            navigate('chat');
+          }}
+          onContinue={(title, messages) => {
+            continueSharedConversation(title, messages);
+            navigate('chat');
+          }}
+        />
+      ) : view === 'share' && shareId ? (
         <ShareView
           key={shareId}
           shareId={shareId}
@@ -227,7 +250,7 @@ const App: React.FC = () => {
           }}
         />
       ) : view === 'about' ? (
-        <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} />
+        <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} onOpenBlog={() => goTo(blogPath(language))} />
       ) : (
         <div className="flex h-dvh overflow-hidden bg-bg text-text">
           <Sidebar
@@ -239,6 +262,7 @@ const App: React.FC = () => {
               setIsSidebarOpen(false);
             }}
             onOpenAbout={() => navigate('about')}
+            onOpenBlog={() => goTo(blogPath(language))}
             onInstall={isInstalled ? undefined : openInstallGuide}
             chats={chats}
             activeChatId={activeChatId}

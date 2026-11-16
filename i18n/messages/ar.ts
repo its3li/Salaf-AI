@@ -193,6 +193,26 @@ export const ar = {
     attachedFile: (title: string) => `أُرفق ملف: ${title} (لا يُعرض)`,
   },
 
+  blog: {
+    nav: 'المدونة',
+    title: 'المدونة',
+    subtitle: 'كل يوم سؤال شرعي وجوابه بأدلته من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث.',
+    readMore: 'اقرأ الجواب',
+    loadMore: 'المزيد',
+    empty: 'لا توجد مقالات بعد. أول سؤال يُنشر قريبًا إن شاء الله.',
+    notFound: 'هذه المقالة غير موجودة.',
+    loading: 'يحمّل…',
+    back: 'كل الأسئلة',
+    askMore: 'اسأل المزيد عن هذا',
+    askOwn: 'اسأل سؤالك',
+    autoNote: 'أجاب عنه باحث السلف، وراجعه تدقيق آلي للأحاديث والأدلة قبل نشره.',
+    edited: 'راجع المحرر هذا الجواب وصحّحه.',
+    reviewed: 'أجاب عنه باحث السلف، وراجعه أحد المحررين وأقرّه.',
+    published: (date: string) => `نُشر في ${date}`,
+    otherLanguages: 'بلغات أخرى',
+    categories: { aqidah: 'عقيدة', fiqh: 'فقه', hadith: 'حديث', tafsir: 'تفسير', adab: 'آداب وأذكار', seerah: 'سيرة' } as Record<string, string>,
+  },
+
   research: {
     preparing: 'جارٍ إعداد الجواب',
     defaultStep: 'يقرأ سؤالك ويُعدّ الجواب',

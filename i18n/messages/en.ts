@@ -188,6 +188,26 @@ export const en: Messages = {
     attachedFile: (title: string) => `File attached: ${title} (not shown)`,
   },
 
+  blog: {
+    nav: 'Blog',
+    title: 'Blog',
+    subtitle: 'A question every day, answered with evidence from the Quran and authentic Sunnah as the Salaf understood them, with hadith checked.',
+    readMore: 'Read the answer',
+    loadMore: 'More',
+    empty: 'No posts yet. The first question will be published soon, in sha Allah.',
+    notFound: "This post doesn't exist.",
+    loading: 'Loading…',
+    back: 'All questions',
+    askMore: 'Ask more about this',
+    askOwn: 'Ask your own question',
+    autoNote: 'Answered by Salaf AI and checked automatically for its hadith and evidence before publishing.',
+    edited: 'This answer was reviewed and corrected by the editor.',
+    reviewed: 'Answered by Salaf AI, then reviewed and approved by an editor.',
+    published: (date: string) => `Published ${date}`,
+    otherLanguages: 'Other languages',
+    categories: { aqidah: 'Aqidah', fiqh: 'Fiqh', hadith: 'Hadith', tafsir: 'Tafsir', adab: 'Manners & adhkar', seerah: 'Seerah' } as Record<string, string>,
+  },
+
   research: {
     preparing: 'Preparing the answer',
     defaultStep: 'Reading your question and preparing the answer',

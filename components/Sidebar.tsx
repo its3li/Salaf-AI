@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { PanelLeft, PanelRight, Pencil, Search, SquarePen, Trash2, X } from 'lucide-react';
+import { BookOpenText, PanelLeft, PanelRight, Pencil, Search, SquarePen, Trash2, X } from 'lucide-react';
 import { ChatSession } from '../types';
 import { ChatQuota } from '../services/chatService';
 import { Theme } from '../hooks/useTheme';
@@ -13,6 +13,8 @@ interface SidebarProps {
   onClose: () => void;
   onNewChat: () => void;
   onOpenAbout: () => void;
+  /** Opens the blog of daily questions. */
+  onOpenBlog: () => void;
   /** Opens the install guide; left out once the app runs installed. */
   onInstall?: () => void;
   chats: ChatSession[];
@@ -60,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onNewChat,
   onOpenAbout,
+  onOpenBlog,
   onInstall,
   chats,
   activeChatId,
@@ -137,6 +140,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <SquarePen size={18} strokeWidth={1.9} aria-hidden="true" />
               {t.sidebar.newChat}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenBlog}
+              data-testid="sidebar-blog"
+              className="flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-[0.95rem] font-medium transition-colors hover:bg-surface-2"
+            >
+              <BookOpenText size={18} strokeWidth={1.9} aria-hidden="true" />
+              {t.blog.nav}
             </button>
             <label className="flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-3 text-faint focus-within:ring-2 focus-within:ring-gold/30">
               <Search size={16} strokeWidth={2} aria-hidden="true" />
