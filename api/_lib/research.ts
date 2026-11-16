@@ -1,4 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import { waitUntil } from '@vercel/functions';
+import { runRedisCommands } from './limits.js';
 
 // Research tools the model can call before citing: Dorar.net for hadith gradings, and web search /
 // page reading (restricted to trusted scholarship sites by default) for statements of scholars.
@@ -236,25 +238,90 @@ export const parseDorarPermalinks = (markdown: string) => {
     return links;
 };
 
-const fetchDorarApi = async (query: string, signal: AbortSignal, config: ResearchConfig) => {
-    const url = `https://dorar.net/dorar_api.json?skey=${encodeURIComponent(query)}`;
+/**
+ * Jina's reader fetches a page like a browser in about a second (PaxSenix takes 8-10 s), so it is
+ * tried first; JINA_API_KEY lifts its anonymous rate limit. Kept on a short leash so a slow or
+ * rate-limited reader hands over to PaxSenix quickly.
+ */
+const JINA_TIMEOUT_MS = 6_000;
+const readWithJina = async (url: string, signal: AbortSignal) => {
+    const headers: Record<string, string> = { Accept: 'text/plain' };
+    if (process.env.JINA_API_KEY) headers.Authorization = `Bearer ${process.env.JINA_API_KEY}`;
+    const response = await fetch(`https://r.jina.ai/${url}`, {
+        headers,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(JINA_TIMEOUT_MS)]),
+    });
+    if (!response.ok) throw new Error(`Jina reader responded with ${response.status}`);
+    return response.text();
+};
+
+/** Reads a Dorar page through the fast reader, then PaxSenix when that fails. */
+const readDorarPage = async (url: string, signal: AbortSignal, config: ResearchConfig) => {
     try {
-        const response = await fetchWithTimeout(
-            url,
-            { headers: { 'User-Agent': BROWSER_USER_AGENT, Accept: 'application/json' } },
-            signal
-        );
-        if (!response.ok) throw new Error(`Dorar responded with ${response.status}`);
-        const payload = (await response.json()) as { ahadith?: { result?: string } };
-        return parseDorarResults(payload.ahadith?.result ?? '');
+        return await readWithJina(url, signal);
     } catch (error) {
         if (signal.aborted || !config.paxsenixKey) throw error;
-        // Dorar's Cloudflare turns server-side clients away by their TLS fingerprint (403 to Node,
-        // 200 to curl from the same machine). PaxSenix's reader fetches it like a browser; slower.
-        console.warn('[research] Dorar API refused a direct request, reading it through PaxSenix', {
-            error: error instanceof Error ? error.message : String(error),
+        return readWithPaxsenix(url, config.paxsenixKey, signal);
+    }
+};
+
+const fetchDorarApiDirect = async (url: string, signal: AbortSignal) => {
+    const response = await fetchWithTimeout(
+        url,
+        { headers: { 'User-Agent': BROWSER_USER_AGENT, Accept: 'application/json' } },
+        signal
+    );
+    if (!response.ok) throw new Error(`Dorar responded with ${response.status}`);
+    const payload = (await response.json()) as { ahadith?: { result?: string } };
+    return parseDorarResults(payload.ahadith?.result ?? '');
+};
+
+const fetchDorarApi = async (query: string, signal: AbortSignal, config: ResearchConfig) => {
+    const url = `https://dorar.net/dorar_api.json?skey=${encodeURIComponent(query)}`;
+    // Dorar's Cloudflare usually turns server-side clients away (403), so a reader is raced against
+    // the direct request instead of waiting for the refusal first.
+    try {
+        return await Promise.any([
+            fetchDorarApiDirect(url, signal),
+            readWithJina(url, signal).then(parseDorarPayload),
+        ]);
+    } catch (error) {
+        if (signal.aborted || !config.paxsenixKey) {
+            throw error instanceof AggregateError ? error.errors[0] : error;
+        }
+        console.warn('[research] Dorar API unreachable directly and through Jina, reading it through PaxSenix', {
+            error: error instanceof AggregateError ? error.errors.map(String).join('; ') : String(error),
         });
         return parseDorarPayload(await readWithPaxsenix(url, config.paxsenixKey, signal));
+    }
+};
+
+/** Once results are in, how long to keep waiting for their Dorar page links before answering without. */
+const LINKS_GRACE_MS = 800;
+const DORAR_CACHE_PREFIX = 'dorar:v1:';
+const DORAR_CACHE_SECONDS = 30 * 24 * 3600;
+const DORAR_CACHE_NO_LINKS_SECONDS = 24 * 3600;
+
+type DorarEntry = ReturnType<typeof parseDorarResults>[number] & { link?: string };
+
+const dorarCacheKey = (query: string) => `${DORAR_CACHE_PREFIX}${query.replace(/\s+/g, ' ').trim()}`;
+
+const readDorarCache = async (query: string): Promise<DorarEntry[] | null> => {
+    try {
+        const replies = await runRedisCommands([['GET', dorarCacheKey(query)]]);
+        const value = replies?.[0]?.result;
+        return typeof value === 'string' ? (JSON.parse(value) as DorarEntry[]) : null;
+    } catch {
+        return null;
+    }
+};
+
+const writeDorarCache = async (query: string, entries: DorarEntry[]) => {
+    const ttl = entries.some((entry) => entry.link) ? DORAR_CACHE_SECONDS : DORAR_CACHE_NO_LINKS_SECONDS;
+    try {
+        await runRedisCommands([['SET', dorarCacheKey(query), JSON.stringify(entries), 'EX', ttl]]);
+    } catch {
+        // A missed cache write only costs the next visitor a fresh lookup.
     }
 };
 
@@ -263,20 +330,41 @@ export const fetchDorarResults = async (
     query: string,
     signal: AbortSignal,
     config: ResearchConfig = getResearchConfig()
-) => {
+): Promise<DorarEntry[]> => {
+    // Gradings don't change, so a fragment someone already looked up is answered from Redis.
+    const cached = await readDorarCache(query);
+    if (cached) return cached;
+
     // Read alongside the API so the links cost no extra waiting; without them results still stand.
     const pageUrl = `https://dorar.net/hadith/search?q=${encodeURIComponent(query)}`;
-    const linksPromise = config.paxsenixKey
-        ? readWithPaxsenix(pageUrl, config.paxsenixKey, signal)
-              .then(parseDorarPermalinks)
-              .catch(() => new Map<string, string>())
-        : Promise.resolve(new Map<string, string>());
+    const linksPromise = readDorarPage(pageUrl, signal, config)
+        .then(parseDorarPermalinks)
+        .catch(() => new Map<string, string>());
 
-    const [results, links] = await Promise.all([fetchDorarApi(query, signal, config), linksPromise]);
-    return results.map((entry) => {
-        const link = entry.source && entry.number ? links.get(permalinkKey(entry.source, entry.number)) : undefined;
-        return link ? { ...entry, link } : entry;
-    });
+    const results = await fetchDorarApi(query, signal, config);
+    const withLinks = (links: Map<string, string>) =>
+        results.map((entry) => {
+            const link = entry.source && entry.number ? links.get(permalinkKey(entry.source, entry.number)) : undefined;
+            return link ? { ...entry, link } : entry;
+        });
+    let linksArrived = false;
+    const links = await Promise.race([
+        linksPromise.then((map) => {
+            linksArrived = true;
+            return map;
+        }),
+        new Promise<Map<string, string>>((resolve) => setTimeout(() => resolve(new Map()), LINKS_GRACE_MS)),
+    ]);
+    const entries = withLinks(links);
+    if (entries.length === 0) return entries;
+    await writeDorarCache(query, entries);
+    if (!linksArrived) {
+        // Answer now; the links keep loading after the response and are saved for the next visitor.
+        waitUntil(
+            linksPromise.then((late) => (late.size > 0 ? writeDorarCache(query, withLinks(late)) : undefined))
+        );
+    }
+    return entries;
 };
 
 const searchHadith = async (query: string, config: ResearchConfig, signal: AbortSignal) => {

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { allowBurst, clearMemoryStoreForTests } from './_lib/limits.js';
 
 const MAX_FIELD_LENGTH = 12000;
 const DISCORD_FIELD_LIMIT = 1024;
@@ -23,7 +24,10 @@ const isFeedbackRateLimited = (req: VercelRequest) => {
   return entry.count > FEEDBACK_LIMIT_PER_WINDOW;
 };
 
-export const clearFeedbackRateLimitForTests = () => feedbackCounters.clear();
+export const clearFeedbackRateLimitForTests = () => {
+  feedbackCounters.clear();
+  clearMemoryStoreForTests();
+};
 
 interface FeedbackPayload {
   messageId: string;
@@ -191,7 +195,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR' } });
   }
 
-  if (isFeedbackRateLimited(req)) {
+  // The shared per-minute count holds across instances, so the Discord channel can't be flooded.
+  if (isFeedbackRateLimited(req) || !(await allowBurst(req, 'feedback', FEEDBACK_LIMIT_PER_WINDOW))) {
     return res.status(429).json({ error: { code: 'RATE_LIMITED' } });
   }
 

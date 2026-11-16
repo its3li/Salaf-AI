@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.135.0",
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.8.2",
+    "@vercel/functions": "3.10.5",
     "lucide-react": "^1.60.0",
     "music-metadata": "^12.5.0",
     "pdfjs-dist": "^6.0.227",

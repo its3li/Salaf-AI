@@ -56,7 +56,7 @@ describe('/api/hadith', () => {
       block('اجعلوا آخر صلاتكم وترا', 'مسلم', 'صحيح مسلم', '751', '[صحيح]'),
       block('اجعلوا آخر صلاتكم وترا', 'البخاري', 'صحيح البخاري', '998', '[صحيح]'),
     ].join('\n');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ahadith: { result: html } }))));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response(JSON.stringify({ ahadith: { result: html } }))));
     const res = createResponse();
 
     await handler(request('اجعلوا آخر صلاتكم'), res as unknown as VercelResponse);
@@ -81,9 +81,27 @@ describe('/api/hadith', () => {
   });
 
   it('reports an unreachable Dorar as an upstream error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('blocked', { status: 403 })));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('blocked', { status: 403 })));
     const res = createResponse();
     await handler(request('حديث تجريبي'), res as unknown as VercelResponse);
     expect(res.statusCode).toBe(502);
+  });
+
+  it('reads Dorar through the fast reader when Dorar refuses the server directly', async () => {
+    const html = block('اجعلوا آخر صلاتكم وترا', 'مسلم', 'صحيح مسلم', '751', '[صحيح]');
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.startsWith('https://r.jina.ai/https://dorar.net/dorar_api.json')) {
+        return new Response(`Title:\nURL Source: x\nMarkdown Content:\n${JSON.stringify({ ahadith: { result: html } })}`);
+      }
+      return new Response('blocked', { status: 403 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const res = createResponse();
+
+    await handler(request('اجعلوا آخر صلاتكم'), res as unknown as VercelResponse);
+
+    expect(res.statusCode).toBe(200);
+    expect((res.body as { results: Array<{ number: string }> }).results.map((entry) => entry.number)).toEqual(['751']);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('paxsenix'))).toBe(false);
   });
 });
