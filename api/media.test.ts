@@ -103,6 +103,8 @@ const runToEnd = async (jobId: string) => {
 };
 
 beforeEach(() => {
+  process.env.MEDIA_DAILY_SECONDS = '3600';
+  process.env.CHAT_PROVIDER = 'anthropic';
   process.env.MEDIA_SIGNING_SECRET = 'test-secret';
   process.env.ASSEMBLYAI_API_KEY = 'aai-key';
   process.env.POLLINATIONS_API_KEY = 'pollinations-key';
@@ -110,6 +112,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.CHAT_PROVIDER;
   vi.unstubAllGlobals();
   clearMemoryStoreForTests();
   for (const name of ['MEDIA_SIGNING_SECRET', 'ASSEMBLYAI_API_KEY', 'POLLINATIONS_API_KEY', 'PAXSENIX_API_KEY', 'MEDIA_DAILY_SECONDS']) {

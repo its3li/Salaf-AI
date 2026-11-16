@@ -28,6 +28,14 @@ afterEach(() => {
 });
 
 describe('buildApiMessages', () => {
+  it('sends every image in a bundle and never resends historical images', async () => {
+    const images = [{ name: 'one.jpg', mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,YWJj' },
+      { name: 'two.jpg', mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,ZGVm' }];
+    const attachment = { name: '2 images', mimeType: 'image/jpeg', data: '', images };
+    const history = [message({ text: 'old', attachment }), message({ role: 'model', text: 'answer' }), message({ text: 'compare' })];
+    const messages = await buildApiMessages(history, 'compare', attachment);
+    expect(messages[0].images).toBeUndefined(); expect(messages.at(-1)?.images).toEqual(images.map(i => i.data));
+  });
   it('skips error messages, inlines PDF text and only re-sends the current image', async () => {
     const history = [
       message({
@@ -98,6 +106,13 @@ describe('buildApiMessages with audio and video', () => {
 });
 
 describe('streamChatReply', () => {
+  it('does not store a depleted success header when an early SSE error refunds the question', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      data({ type: 'error', code: 'LOCAL_QUEUE_BUSY', message: 'Another request is running' }),
+    ], { 'x-ratelimit-limit': '20', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(Date.now() + 60000) })));
+    await streamChatReply({ history: [message({ text: 'سؤال' })], text: 'سؤال', signal: new AbortController().signal }).catch(() => {});
+    expect(loadStoredQuota()).toBeNull();
+  });
   it('assembles streamed text and stores the quota from response headers', async () => {
     vi.stubGlobal(
       'fetch',

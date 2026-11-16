@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type { VercelRequest } from '@vercel/node';
 import {
   chargeMedia,
@@ -14,7 +14,9 @@ import {
 const request = (device = 'device-aaaa-1111', ip = '203.0.113.10') =>
   ({ method: 'POST', headers: { 'x-forwarded-for': ip, 'x-client-id': device }, body: {} }) as unknown as VercelRequest;
 
+beforeEach(() => { process.env.MEDIA_DAILY_SECONDS = '3600'; });
 afterEach(() => {
+  delete process.env.MEDIA_DAILY_SECONDS;
   clearMemoryStoreForTests();
   for (const name of ['DAILY_CREDIT_LIMIT', 'MEDIA_SITE_DAILY_SECONDS', 'MEDIA_IP_DAILY_SECONDS']) delete process.env[name];
 });
@@ -39,10 +41,10 @@ describe('chargeMedia', () => {
     expect(allowance.credits.remaining).toBe(48);
   });
 
-  it('lets an item that crosses the daily hour pass in full, then refuses the next', async () => {
+  it('refuses an item that crosses the remaining daily allowance', async () => {
     expect((await chargeMedia(request(), 3000)).allowed).toBe(true);
-    // 10 minutes are left, yet a two-hour video still passes.
-    expect(await chargeMedia(request(), 7200)).toMatchObject({ allowed: true, charge: { credits: 20 } });
+    expect(await chargeMedia(request(), 7200)).toMatchObject({ allowed: false, reason: 'MEDIA_DAILY_LIMIT' });
+    expect((await chargeMedia(request(), 600)).allowed).toBe(true);
     expect(await chargeMedia(request(), 60)).toMatchObject({ allowed: false, reason: 'MEDIA_DAILY_LIMIT' });
     // A different device has its own hour.
     expect((await chargeMedia(request('device-bbbb-2222'), 60)).allowed).toBe(true);
@@ -60,7 +62,7 @@ describe('chargeMedia', () => {
     expect(await chargeMedia(request(), 3 * 3600 + 1)).toMatchObject({ allowed: false, reason: 'MEDIA_TOO_LONG' });
     process.env.MEDIA_SITE_DAILY_SECONDS = '1000';
     expect((await chargeMedia(request('device-1111-aaaa'), 900)).allowed).toBe(true);
-    expect((await chargeMedia(request('device-2222-bbbb', '198.51.100.7'), 900)).allowed).toBe(true);
+    expect((await chargeMedia(request('device-2222-bbbb', '198.51.100.7'), 100)).allowed).toBe(true);
     expect(await chargeMedia(request('device-3333-cccc', '198.51.100.8'), 60)).toMatchObject({
       allowed: false,
       reason: 'MEDIA_SITE_LIMIT',
@@ -70,7 +72,7 @@ describe('chargeMedia', () => {
   it('caps one network even when the device id keeps changing', async () => {
     process.env.MEDIA_IP_DAILY_SECONDS = '4000';
     expect((await chargeMedia(request('device-1111-aaaa'), 3600)).allowed).toBe(true);
-    expect((await chargeMedia(request('device-2222-bbbb'), 600)).allowed).toBe(true);
+    expect((await chargeMedia(request('device-2222-bbbb'), 400)).allowed).toBe(true);
     expect(await chargeMedia(request('device-3333-cccc'), 60)).toMatchObject({ allowed: false, reason: 'MEDIA_DAILY_LIMIT' });
   });
 

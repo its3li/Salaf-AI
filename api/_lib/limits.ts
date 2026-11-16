@@ -1,4 +1,5 @@
 import type { VercelRequest } from '@vercel/node';
+import { DAILY_IMAGE_LIMIT } from './imagePolicy.js';
 
 // ---------------------------------------------------------------------------
 // Usage limits shared by /api/chat and /api/media.
@@ -16,7 +17,7 @@ export const DEFAULT_DAILY_CREDITS = 50;
 const DEFAULT_IP_DAILY_CREDITS = 500;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_RATE_LIMIT_MAX = 10;
-export const DEFAULT_MEDIA_DAILY_SECONDS = 3600;
+export const DEFAULT_MEDIA_DAILY_SECONDS = 1200;
 const DEFAULT_MEDIA_IP_DAILY_SECONDS = 3 * 3600;
 const DEFAULT_MEDIA_SITE_DAILY_SECONDS = 10 * 3600;
 export const DEFAULT_MEDIA_MAX_SECONDS = 3 * 3600;
@@ -65,7 +66,7 @@ const getMediaLimits = () => ({
     maxSeconds: getNumberEnv('MEDIA_MAX_SECONDS', DEFAULT_MEDIA_MAX_SECONDS),
 });
 
-export const getMediaMaxSeconds = () => getMediaLimits().maxSeconds;
+export const getMediaMaxSeconds = () => Math.min(getMediaLimits().maxSeconds, getMediaLimits().userSeconds);
 
 // ---------------------------------------------------------------------------
 // Storage
@@ -299,7 +300,7 @@ export interface QuotaStatus {
 
 export interface QuotaReservation {
     allowed: boolean;
-    reason?: 'burst' | 'daily';
+    reason?: 'burst' | 'daily' | 'credits' | 'images';
     retryAfterSeconds: number;
     quota: QuotaStatus | null;
     release: () => Promise<void>;
@@ -310,10 +311,13 @@ export interface QuotaReservation {
  * tracked per device with a higher per-IP ceiling so clearing browser storage cannot be used to
  * bypass it. `release` refunds the credit when the answer never reached the user.
  */
-export const reserveMessageCredit = async (req: VercelRequest): Promise<QuotaReservation> => {
-    const store = getStore();
+export const reserveMessageCredit = async (req: VercelRequest, options: { strict?: boolean; credits?: number; images?: number } = {}): Promise<QuotaReservation> => {
+    const store = getStore(options);
     const now = Date.now();
     const identity = getIdentity(req, now);
+    const credits = options.credits ?? 1;
+    const images = options.images ?? 0;
+    if (!Number.isSafeInteger(credits) || credits < 1 || !Number.isSafeInteger(images) || images < 0) throw new Error('Invalid credit reservation');
 
     const burstWindowMs = getNumberEnv('CHAT_RATE_LIMIT_WINDOW_MS', DEFAULT_RATE_LIMIT_WINDOW_MS, 1000);
     const burstMax = getNumberEnv('CHAT_RATE_LIMIT_MAX', DEFAULT_RATE_LIMIT_MAX);
@@ -339,12 +343,18 @@ export const reserveMessageCredit = async (req: VercelRequest): Promise<QuotaRes
     }
 
     const keys = creditKeys(identity);
-    const [userCount, ipCount] = await Promise.all([
-        store.incrementBy(keys.user, 1, identity.resetAt),
-        store.incrementBy(keys.ip, 1, identity.resetAt),
+    const imageKey = `salaf:images:${identity.user}:${identity.day}`;
+    const [userCount, ipCount, imageCount] = await Promise.all([
+        store.incrementBy(keys.user, credits, identity.resetAt),
+        store.incrementBy(keys.ip, credits, identity.resetAt),
+        images ? store.incrementBy(imageKey, images, identity.resetAt) : Promise.resolve(0),
     ]);
+    let released = false;
     const release = async () => {
-        await Promise.all([store.decrementBy(keys.user, 1), store.decrementBy(keys.ip, 1)]);
+        if (released) return;
+        released = true;
+        await Promise.all([store.decrementBy(keys.user, credits), store.decrementBy(keys.ip, credits),
+            images ? store.decrementBy(imageKey, images) : Promise.resolve()]);
     };
 
     const quota: QuotaStatus = {
@@ -353,13 +363,14 @@ export const reserveMessageCredit = async (req: VercelRequest): Promise<QuotaRes
         resetAt: identity.resetAt,
     };
 
-    if (userCount > dailyLimit || ipCount > getIpCreditLimit(dailyLimit)) {
+    if (userCount > dailyLimit || ipCount > getIpCreditLimit(dailyLimit) || imageCount > DAILY_IMAGE_LIMIT) {
         await release();
+        const remaining = Math.max(0, Math.min(dailyLimit - (userCount - credits), getIpCreditLimit(dailyLimit) - (ipCount - credits)));
         return {
             allowed: false,
-            reason: 'daily',
+            reason: imageCount > DAILY_IMAGE_LIMIT ? 'images' : remaining > 0 && credits > remaining ? 'credits' : 'daily',
             retryAfterSeconds: Math.max(1, Math.ceil((identity.resetAt - now) / 1000)),
-            quota: { ...quota, remaining: 0 },
+            quota: { ...quota, remaining },
             release: async () => {},
         };
     }
@@ -377,6 +388,8 @@ export interface MediaAllowance {
     mediaRemainingSeconds: number;
     mediaLimitSeconds: number;
     maxSeconds: number;
+    imageRemainingCount: number;
+    imageLimitCount: number;
 }
 
 /** Reads what a user has left today without charging anything. */
@@ -385,15 +398,19 @@ export const getMediaAllowance = async (req: VercelRequest): Promise<MediaAllowa
     const identity = getIdentity(req);
     const limits = getMediaLimits();
     const dailyLimit = getDailyCreditLimit();
-    const [creditsUsed, mediaUsed] = await Promise.all([
+    const [creditsUsed, mediaUsed, imagesUsed, ipCreditsUsed] = await Promise.all([
         store.get(creditKeys(identity).user),
         store.get(mediaKeys(identity).user),
+        store.get(`salaf:images:${identity.user}:${identity.day}`),
+        store.get(creditKeys(identity).ip),
     ]);
     return {
-        credits: { limit: dailyLimit, remaining: Math.max(0, dailyLimit - creditsUsed), resetAt: identity.resetAt },
+        credits: { limit: dailyLimit, remaining: Math.max(0, Math.min(dailyLimit - creditsUsed, getIpCreditLimit(dailyLimit) - ipCreditsUsed)), resetAt: identity.resetAt },
         mediaRemainingSeconds: Math.max(0, limits.userSeconds - mediaUsed),
         mediaLimitSeconds: limits.userSeconds,
-        maxSeconds: limits.maxSeconds,
+        maxSeconds: Math.min(limits.maxSeconds, limits.userSeconds),
+        imageRemainingCount: Math.max(0, DAILY_IMAGE_LIMIT - imagesUsed),
+        imageLimitCount: DAILY_IMAGE_LIMIT,
     };
 };
 
@@ -451,9 +468,9 @@ export const chargeMedia = async (req: VercelRequest, seconds: number): Promise<
 
     // Every check looks at the total *before* this item, so the item that crosses a line still passes.
     let reason: MediaRefusal | null = null;
-    if (userSeconds - seconds >= limits.userSeconds) reason = 'MEDIA_DAILY_LIMIT';
-    else if (ipSeconds - seconds >= limits.ipSeconds) reason = 'MEDIA_DAILY_LIMIT';
-    else if (siteSeconds - seconds >= limits.siteSeconds) reason = 'MEDIA_SITE_LIMIT';
+    if (userSeconds > limits.userSeconds) reason = 'MEDIA_DAILY_LIMIT';
+    else if (ipSeconds > limits.ipSeconds) reason = 'MEDIA_DAILY_LIMIT';
+    else if (siteSeconds > limits.siteSeconds) reason = 'MEDIA_SITE_LIMIT';
     // Credits are the exception: the question that goes with the media needs one more.
     else if (dailyCredits > 0 && (userCredits + 1 > dailyCredits || ipCredits > getIpCreditLimit(dailyCredits))) {
         reason = 'NOT_ENOUGH_CREDITS';

@@ -47,6 +47,17 @@ const isValidAttachment = (value: unknown): value is Attachment => {
   if (!isRecord(value)) return false;
   if (typeof value.name !== 'string' || typeof value.mimeType !== 'string') return false;
   if (typeof value.data !== 'string') return false;
+  if (value.images !== undefined) return Array.isArray(value.images) && value.images.length > 0 && value.images.length <= 3 &&
+    value.images.every(image => isRecord(image) && typeof image.name === 'string' && typeof image.mimeType === 'string' &&
+      image.mimeType.startsWith('image/') && typeof image.data === 'string' && image.data.startsWith('data:image/'));
+  if (value.native !== undefined) {
+    const file = value.native;
+    // Imported native references are always re-validated by the server (including owner/expiry).
+    return isRecord(file) && ['audio', 'video', 'youtube', 'pdf'].includes(file.kind as string) &&
+      typeof file.title === 'string' && typeof file.mimeType === 'string' && typeof file.byteLength === 'number' &&
+      typeof file.durationSec === 'number' && typeof file.expiresAt === 'number' && typeof file.owner === 'string' &&
+      typeof file.signature === 'string';
+  }
   if (value.media !== undefined) {
     // The server checks the signature again whenever the transcript is sent, so shape is enough here.
     const media = value.media;
@@ -145,6 +156,14 @@ const getChatErrorMessage = (error: unknown, t: Messages, language: Language) =>
         return withTrace(t.errors.unavailable);
       case 'UPSTREAM_BUSY':
         return withTrace(t.errors.overloaded);
+      case 'LOCAL_QUEUE_BUSY':
+        return withTrace(t.errors.queued);
+      case 'IMAGE_DAILY_LIMIT':
+        return withTrace(t.attachments.imageDailyLimit);
+      case 'INSUFFICIENT_CREDITS':
+        return withTrace(t.attachments.imageCreditsInsufficient);
+      case 'UNSUPPORTED_ATTACHMENT':
+        return withTrace(t.attachments.providerUnsupported);
       case 'UPSTREAM_TIMEOUT':
       case 'CLIENT_TIMEOUT':
         return withTrace(t.errors.timeout);
@@ -170,6 +189,7 @@ const getChatTitle = (chat: ChatSession, text: string, t: Messages, attachment?:
   if (chat.messages.length > 0) return chat.title;
   if (text.trim().length > 0) return shorten(text);
   if (attachment?.media) return shorten(attachment.media.title);
+  if (attachment?.native) return shorten(attachment.native.title);
   if (attachment) return t.chats.fileTitle(attachment.name);
   return chat.title;
 };
@@ -308,6 +328,16 @@ export const useChats = (showDialog: (opts: DialogOptions) => Promise<boolean | 
       });
 
       const truncationNote = reply.stopReason === 'max_tokens' ? `\n\n> ${t.notes.maxTokens}` : '';
+      if (reply.mediaFallback || reply.pdfTextFallback) {
+        const userId = history.at(-1)?.id;
+        updateChatMessages(chatId, messages => messages.map(message => {
+          if (message.id !== userId || !message.attachment) return message;
+          const attachment = { ...message.attachment };
+          delete attachment.native;
+          if (reply.mediaFallback) { attachment.media = reply.mediaFallback; attachment.data = ''; }
+          return { ...message, attachment };
+        }));
+      }
       appendAnswer({ text: reply.text + truncationNote });
       completedAnswer = reply.text;
     } catch (error) {

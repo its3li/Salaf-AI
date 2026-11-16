@@ -92,6 +92,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   clearChatRateLimitForTests();
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.CHAT_PROVIDER;
   delete process.env.PAXSENIX_API_KEY;
   delete process.env.AQUADEVS_API_KEY;
 });
@@ -171,6 +172,7 @@ describe('runResearchTool', () => {
 describe('/api/chat research loop', () => {
   it('runs a hadith check, reports progress, and returns only the final answer', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key';
+    process.env.CHAT_PROVIDER = 'anthropic';
     process.env.PAXSENIX_API_KEY = 'pax-key';
     let modelCalls = 0;
     const fetchMock = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(async (url) => {

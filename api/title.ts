@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
 import { getBaseUrl } from './_lib/anthropic.js';
+import { getChatProvider, generateGemini } from './_lib/gemini.js';
 
 // Names a conversation after its first exchange, with a small fast model on the same provider and
 // key as the answers. It is a nicety: any failure leaves the title the browser already gave it.
@@ -71,6 +72,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(429).json({ error: 'Too many requests' });
     }
 
+    if (getChatProvider() === 'gemini') {
+        try {
+            const message = await generateGemini({
+                systemInstruction: { parts: [{ text: systemPrompt(LANGUAGE_NAMES[language]) }] },
+                contents: [{ role: 'user', parts: [{ text: `<question>${question.slice(0, 1000)}</question>\n<answer>${answer.slice(0, 2000)}</answer>` }] }],
+                generationConfig: { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'LOW' } },
+            }, AbortSignal.timeout(20000));
+            const candidate = message.candidates?.[0];
+            const title = cleanTitle(candidate?.content?.parts.filter(p => p.text && !p.thought).map(p => p.text).join('') || '');
+            return candidate?.finishReason === 'STOP' && title ? res.status(200).json({ title }) : res.status(422).json({ error: 'No title' });
+        } catch { return res.status(502).json({ error: 'Title unavailable' }); }
+    }
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
         return res.status(503).json({ error: 'Titles are not configured' });

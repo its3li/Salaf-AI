@@ -48,7 +48,7 @@ export const recordMessage = (req: VercelRequest, language: string) => {
 };
 
 /** Counts a transcribed clip: its length, and whether the backup or the cache supplied it. */
-export const recordMedia = (seconds: number, provider: 'assemblyai' | 'mai' | 'cache') => {
+export const recordMedia = (seconds: number, provider: 'assemblyai' | 'mai' | 'cache' | 'native') => {
     const day = statsDay();
     return record(
         [

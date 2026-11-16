@@ -9,6 +9,7 @@ import { formatClock, formatTime, localizeDigits } from '../services/format';
 import { gradeTone } from '../services/hadithGrades';
 import { useI18n } from '../i18n/context';
 import { textDirection, type Language } from '../i18n/languages';
+import { attachedImages } from '../services/imageAttachments';
 
 interface MessageBubbleProps {
   message: Message;
@@ -90,10 +91,11 @@ const IconButton: React.FC<
 const MediaCard: React.FC<{ attachment: Attachment }> = ({ attachment }) => {
   const { t, language } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
-  const media = attachment.media;
+  const media = attachment.media || attachment.native;
   if (!media) return null;
+  if (media.kind === 'pdf') return null;
 
-  const detail = [t.media.kinds[media.kind], localizeDigits(formatClock(media.durationSec), language), media.channel]
+  const detail = [t.media.kinds[media.kind], localizeDigits(formatClock(media.durationSec), language), 'channel' in media && media.channel]
     .filter(Boolean)
     .join(' · ');
   const title = <span className="line-clamp-2 text-[0.95rem] font-medium leading-snug" dir="auto">{media.title}</span>;
@@ -128,7 +130,7 @@ const MediaCard: React.FC<{ attachment: Attachment }> = ({ attachment }) => {
           <span className="mt-0.5 block truncate text-[0.8rem] text-faint">{detail}</span>
         </span>
       </div>
-      <button
+      {'transcript' in media && <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
@@ -136,8 +138,8 @@ const MediaCard: React.FC<{ attachment: Attachment }> = ({ attachment }) => {
       >
         {isOpen ? t.media.hideTranscript : t.media.showTranscript}
         <ChevronDown size={15} strokeWidth={2} aria-hidden="true" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {isOpen && (
+      </button>}
+      {'transcript' in media && isOpen && (
         <div className="max-h-72 overflow-y-auto border-t border-line px-3.5 py-3">
           {media.approximateTimes && <p className="mb-2 text-[0.8rem] text-faint">{t.media.approximateTimes}</p>}
           <p dir="auto" className="whitespace-pre-wrap text-[0.88rem] leading-relaxed text-muted">
@@ -326,12 +328,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return (
       <article aria-label="User message" className="mb-8 flex justify-start ltr:justify-end slide-in">
         <div className="max-w-[85%] md:max-w-[75%]">
-          {message.attachment?.media ? (
+          {message.attachment?.media || (message.attachment?.native && message.attachment.native.kind !== 'pdf') ? (
             <MediaCard attachment={message.attachment} />
           ) : message.attachment && (
             <div className="mb-2 overflow-hidden rounded-2xl border border-line">
               {message.attachment.mimeType.startsWith('image/') ? (
-                <img src={message.attachment.data} alt={t.message.attachedImage} className="max-h-72 w-full object-cover" />
+                <div data-testid="image-gallery" className={`grid gap-1 ${attachedImages(message.attachment).length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {attachedImages(message.attachment).map((image, index) => <img key={`${index}-${image.name}`} src={image.data}
+                    alt={`${t.message.attachedImage}: ${image.name}`} className="max-h-72 w-full object-contain" />)}
+                </div>
               ) : (
                 <div className="flex items-center gap-3 bg-surface px-4 py-3">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger-soft text-[0.7rem] font-bold text-danger">PDF</span>

@@ -46,6 +46,31 @@ test('sends a message and renders the streamed answer', async ({ page }) => {
   await expect(page.getByText('Mocked answer with a source.')).toBeVisible();
 });
 
+test('supports three images, shows seven credits, rejects a fourth, and renders every image', async ({ page }) => {
+  await page.route('**/api/media', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    ...allowance(), mode: 'native', imageRemainingCount: 11, imageLimitCount: 11,
+  }) }));
+  let received: { messages: Array<{ images?: string[] }> } | undefined;
+  await page.route('**/api/chat', route => {
+    received = route.request().postDataJSON();
+    return route.fulfill({ status: 200, contentType: 'text/event-stream', body: streamResponse('Images checked.') });
+  });
+  await openChat(page);
+  const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6X8AAAAASUVORK5CYII=', 'base64');
+  const files = [1, 2, 3].map(i => ({ name: `image-${i}.png`, mimeType: 'image/png', buffer: pixel }));
+  await page.locator('input[type=file][accept*="image"]').setInputFiles(files);
+  await expect(page.getByTestId('image-preview')).toHaveCount(3);
+  await expect(page.getByTestId('image-credit-cost')).toContainText('٧');
+  await page.locator('input[type=file][accept*="image"]').setInputFiles({ name: 'fourth.png', mimeType: 'image/png', buffer: pixel });
+  await expect(page.getByRole('alert')).toContainText('٣ صور');
+  await expect(page.getByTestId('image-preview')).toHaveCount(3);
+  await page.getByTestId('chat-textarea').fill('Compare these images');
+  await page.getByTestId('send-message').click();
+  await expect(page.getByText('Images checked.')).toBeVisible();
+  expect(received?.messages.at(-1)?.images).toHaveLength(3);
+  await expect(page.getByTestId('image-gallery').locator('img')).toHaveCount(3);
+});
+
 test('opens in English, left to right, for an English visitor outside the Arab world', async ({ page }) => {
   await page.route('**/api/geo', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ country: 'GB' }) })
@@ -323,7 +348,7 @@ test('turns a YouTube link into a transcript and sends the waiting question with
 
   const dialog = page.getByTestId('app-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByTestId('dialog-warning')).toContainText('نصّ الكلام فقط');
+  await expect(dialog.getByTestId('dialog-warning')).toContainText('صوت يوتيوب فقط');
   await expect(dialog).toContainText(TRANSCRIPT.title);
   // Ten minutes: two points and ten of today's sixty minutes.
   await expect(dialog.getByTestId('dialog-meters')).toContainText('نقطتان');
@@ -391,4 +416,34 @@ test('asks before transcribing an audio file and does nothing when cancelled', a
   // Only balance checks: nothing was started or uploaded.
   expect(actions.length).toBeGreaterThan(0);
   expect(actions.every((action) => action === 'allowance')).toBe(true);
+});
+
+test('keeps a returned speech fallback for follow-up questions instead of resending native media', async ({ page }) => {
+  const media = { kind: 'audio', title: 'test.wav', durationSec: 1, transcript: '[0:00] verified fallback speech', signature: 'test-transcript-signature' };
+  await page.route('**/api/media', route => {
+    const body = route.request().postDataJSON();
+    const balance = { ...allowance(), mode: 'native' };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body.action === 'start' ? {
+      stage: 'done', jobId: 'prepared-audio', credits: 1, quota: balance.quota,
+      result: { kind: 'audio', title: 'test.wav', mimeType: 'audio/wav', durationSec: 1, byteLength: 16044, data: 'YWJj',
+        owner: 'test-owner', signature: 'test-native-signature', expiresAt: Date.now() + 60000 },
+    } : balance) });
+  });
+  const bodies: Array<{ messages: Array<{ native?: unknown; media?: unknown }> }> = [];
+  await page.route('**/api/chat', route => {
+    bodies.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'text/event-stream', body:
+      `data: ${JSON.stringify({ type: 'text', text: bodies.length === 1 ? 'First fallback answer.' : 'Follow-up answer.' })}\n\n` +
+      `data: ${JSON.stringify({ type: 'done', stopReason: 'end_turn', ...(bodies.length === 1 && { mediaFallback: media }) })}\n\n` });
+  });
+  await openChat(page);
+  await page.locator('input[type=file][accept*="audio"]').setInputFiles({ name: 'test.wav', mimeType: 'audio/wav', buffer: silentWav() });
+  await page.getByRole('dialog').getByRole('button', { name: 'متابعة' }).click();
+  await expect(page.getByTestId('media-pending')).toHaveCount(0);
+  await page.getByTestId('chat-textarea').fill('What was said?'); await page.getByTestId('send-message').click();
+  await expect(page.getByText('First fallback answer.')).toBeVisible();
+  await page.getByTestId('chat-textarea').fill('Explain the first point'); await page.getByTestId('send-message').click();
+  await expect(page.getByText('Follow-up answer.')).toBeVisible();
+  expect(bodies[0].messages.at(-1)?.native).toBeTruthy();
+  expect(bodies[1].messages[0].media).toEqual(media); expect(bodies[1].messages[0].native).toBeUndefined();
 });

@@ -1,6 +1,7 @@
 import { upload } from '@vercel/blob/client';
-import type { MediaTranscript } from '../types';
+import type { MediaTranscript, NativeFile } from '../types';
 import { getClientId, type ChatQuota } from './chatService';
+import { createClientUuid } from './ids';
 
 export { findYoutubeLink, parseYoutubeId } from '../api/_lib/youtube';
 
@@ -8,7 +9,7 @@ export { findYoutubeLink, parseYoutubeId } from '../api/_lib/youtube';
 // transcription and waits for it. The server charges credits when a transcription starts.
 
 export const MEDIA_SECONDS_PER_CREDIT = 360;
-export const MAX_MEDIA_FILE_MB = 200;
+export const MAX_MEDIA_FILE_MB = 12;
 const POLL_INTERVAL_MS = 3000;
 // Long lectures take about two minutes; the backup provider can take several more.
 const POLL_TIMEOUT_MS = 20 * 60_000;
@@ -17,6 +18,10 @@ const POLL_TIMEOUT_MS = 20 * 60_000;
 export const mediaCreditCost = (seconds: number) => Math.max(1, Math.ceil(seconds / MEDIA_SECONDS_PER_CREDIT));
 
 export interface MediaAllowance {
+  mode?: 'native';
+  maxFileBytes?: number;
+  imageRemainingCount?: number;
+  imageLimitCount?: number;
   quota: ChatQuota;
   mediaRemainingSeconds: number;
   mediaLimitSeconds: number;
@@ -36,7 +41,7 @@ export type MediaStage = 'audio' | 'transcribing' | 'done' | 'failed';
 interface JobResponse {
   jobId: string;
   stage: MediaStage;
-  result?: MediaTranscript;
+  result?: MediaTranscript | NativeFile;
   error?: { code: string };
   credits: number;
   quota?: ChatQuota;
@@ -101,11 +106,24 @@ export const readMediaDuration = (file: File): Promise<number | null> =>
 /** Uploads a file straight to storage (not through our functions, which cap request bodies at 4.5 MB). */
 export const uploadMediaFile = async (
   file: File,
-  { onProgress, signal }: { onProgress?: (percentage: number) => void; signal?: AbortSignal } = {}
+  { onProgress, signal, native = true }: { onProgress?: (percentage: number) => void; signal?: AbortSignal; native?: boolean } = {}
 ) => {
+  if (native && file.size <= 2 * 1024 * 1024) {
+    signal?.throwIfAborted();
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new MediaServiceError('UPLOAD_FAILED'));
+      reader.readAsDataURL(file);
+    });
+    signal?.throwIfAborted();
+    onProgress?.(100);
+    return data;
+  }
   const clientId = getClientId();
   try {
-    const blob = await upload(`media/${file.name || 'audio'}`, file, {
+    const path = native ? `media/native/${createClientUuid()}/${(file.name || 'file').replace(/[/\\]/g, '_')}` : `media/${file.name || 'audio'}`;
+    const blob = await upload(path, file, {
       access: 'public',
       handleUploadUrl: '/api/media',
       multipart: file.size > 8 * 1024 * 1024,
@@ -123,19 +141,30 @@ export const uploadMediaFile = async (
   }
 };
 
-export const startYoutube = (url: string) => callMedia<JobResponse>({ action: 'start', url });
+export const startYoutube = (url: string, signal?: AbortSignal) => callMedia<JobResponse>({ action: 'start', url }, signal);
 
-export const startUpload = (blobUrl: string, durationSec: number | null, name: string) =>
-  callMedia<JobResponse>({ action: 'start', blobUrl, durationSec, name });
+export const startUpload = (blobUrl: string, durationSec: number | null, name: string, signal?: AbortSignal) =>
+  callMedia<JobResponse>({ action: 'start', ...(blobUrl.startsWith('data:') ? { dataUrl: blobUrl } : { blobUrl }), durationSec, name }, signal);
+
+/** PDFs use the original bytes, including scanned pages; unlike media there is no minute charge. */
+export const prepareNativePdf = async (file: File): Promise<NativeFile | null> => {
+  const allowance = await getMediaAllowance();
+  if (allowance.mode !== 'native') return null;
+  if (file.size > (allowance.maxFileBytes || 12 * 1024 * 1024)) throw new MediaServiceError('UPLOAD_FAILED');
+  const source = await uploadMediaFile(file);
+  const job = await startUpload(source, 0, file.name);
+  return job.result && 'mimeType' in job.result ? job.result : null;
+};
 
 /** Asks for a job's progress every few seconds until its transcript is ready. */
 export const waitForTranscript = async (
   job: JobResponse,
   { onStage, signal }: { onStage?: (stage: MediaStage) => void; signal?: AbortSignal } = {}
-): Promise<MediaTranscript> => {
+): Promise<MediaTranscript | NativeFile> => {
   const startedAt = Date.now();
   let current = job;
   for (;;) {
+    signal?.throwIfAborted();
     if (current.stage === 'done' && current.result) return current.result;
     if (current.stage === 'failed') throw new MediaServiceError(current.error?.code || 'TRANSCRIPTION_FAILED');
     if (Date.now() - startedAt > POLL_TIMEOUT_MS) throw new MediaServiceError('TRANSCRIPTION_FAILED');
