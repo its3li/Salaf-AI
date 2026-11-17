@@ -2,11 +2,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
 import { allowBurst } from './_lib/limits.js';
 import { createShare, deleteShare, readShare, ShareError } from './_lib/shares.js';
+import { handleSharePage } from './_lib/sharedPage.js';
 
 // Shared conversations: POST publishes the server's own copy of a conversation, GET reads one for
 // the share page, DELETE stops sharing with the token only the person who shared it has.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // /s/<id> pages come here too (vercel.json), so sharing stays one function.
+    if (req.query.page === '1') return handleSharePage(req, res);
     try {
         if (req.method === 'GET') {
             const share = await readShare(String(req.query.id ?? ''));

@@ -7,6 +7,7 @@ import { useI18n } from '../i18n/context';
 interface AboutPageProps {
   onStartChat: () => void;
   onInstallClick: () => void;
+  onOpenBlog?: () => void;
 }
 
 // Hero parts arrive one after another.
@@ -16,7 +17,7 @@ const delay = (ms: number) => ({ '--d': `${ms}ms` }) as React.CSSProperties;
 const STEP_ICONS = [MessageCircle, ShieldCheck, BookOpenText];
 
 /** A short page about the project, for visitors and search engines; the app itself opens at "/". */
-export const AboutPage: React.FC<AboutPageProps> = ({ onStartChat, onInstallClick }) => {
+export const AboutPage: React.FC<AboutPageProps> = ({ onStartChat, onInstallClick, onOpenBlog }) => {
   const { t } = useI18n();
   const { about } = t;
 
@@ -44,6 +45,15 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onStartChat, onInstallClic
             <span className="text-[1.05rem] font-bold">{t.appName}</span>
           </button>
           <div className="flex items-center gap-1.5">
+            {onOpenBlog && (
+              <button
+                type="button"
+                onClick={onOpenBlog}
+                className="h-9 rounded-full px-3 text-[0.9rem] text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                {t.blog.nav}
+              </button>
+            )}
             <LanguageMenu />
             <button
               type="button"

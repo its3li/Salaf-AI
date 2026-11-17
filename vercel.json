@@ -1,14 +1,39 @@
 {
   "functions": {
     "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true },
-    "api/media.ts": { "maxDuration": 300 }
+    "api/media.ts": { "maxDuration": 300 },
+    "api/blogadmin.ts": { "maxDuration": 300 }
   },
-  "crons": [{ "path": "/api/stats", "schedule": "10 0 * * *" }],
+  "crons": [
+    { "path": "/api/stats", "schedule": "10 0 * * *" },
+    { "path": "/api/blogadmin?task=daily", "schedule": "0 6 * * *" }
+  ],
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },
+    { "source": "/sitemap.xml", "destination": "/api/blogpage?sitemap=1" },
+    {
+      "source": "/blog",
+      "destination": "/api/blogpage?lang=ar",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
+    {
+      "source": "/blog/:slug",
+      "destination": "/api/blogpage?lang=ar&slug=:slug",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
+    {
+      "source": "/:lang(en|ur|fa)/blog",
+      "destination": "/api/blogpage?lang=:lang",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
+    {
+      "source": "/:lang(en|ur|fa)/blog/:slug",
+      "destination": "/api/blogpage?lang=:lang&slug=:slug",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
     {
       "source": "/s/:id",
-      "destination": "/api/shared?id=:id",
+      "destination": "/api/share?id=:id&page=1",
       "missing": [{ "type": "query", "key": "app" }]
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
