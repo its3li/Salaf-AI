@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateGemini } from './gemini';
 import { runResearchTool } from './research';
 import { clearMemoryStoreForTests } from './limits';
-import { clearBlogMemoryForTests, publishQuestion, queueQuestion, readPost, runDaily, savePost, type BlogPost } from './blog';
+import { clearBlogMemoryForTests, findPost, localSlug, publishQuestion, queueQuestion, readPost, runDaily, savePost, type BlogPost } from './blog';
 import blogHandler from '../blog';
 import adminHandler from '../blogadmin';
 import blogPageHandler from '../blogpage';
@@ -75,7 +75,8 @@ describe('publishing a question', () => {
     expect(result.post.slug).toBe('witr-ruling');
     expect(result.post.category).toBe('fiqh');
     expect(Object.keys(result.post.langs).sort()).toEqual(['ar', 'en', 'fa', 'ur']);
-    expect(result.post.langs.ar).toEqual({ q: 'ما حكم الوتر؟', a: 'الوتر سنة مؤكدة (١).' });
+    expect(result.post.langs.ar).toEqual({ q: 'ما حكم الوتر؟', a: 'الوتر سنة مؤكدة (١).', slug: 'ما-حكم-الوتر' });
+    expect(result.post.langs.en?.slug).toBe('witr-ruling');
     // The review saw what the hadith check returned.
     const reviewCall = vi.mocked(generateGemini).mock.calls.find(([body]) => JSON.stringify(body).includes('strict reviewer'));
     expect(JSON.stringify(reviewCall)).toContain('صحيح مسلم (751)');
@@ -175,8 +176,39 @@ describe('public pages', () => {
     await savePost(samplePost());
     const res = response();
     await blogPageHandler({ method: 'GET', headers: {}, query: { sitemap: '1' } } as unknown as VercelRequest, res as unknown as VercelResponse);
-    expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/blog/witr-ruling</loc>');
+    expect(String(res.body)).toContain(`<loc>https://salaf-ai.vercel.app/blog/${encodeURIComponent('ما-حكم-الوتر')}</loc>`);
     expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/en/blog/witr-ruling</loc>');
+  });
+});
+
+describe('addresses in each language', () => {
+  it('turns a question into an address in its own words', () => {
+    expect(localSlug('ما حُكْمُ صلاةِ الوترِ؟')).toBe('ما-حكم-صلاة-الوتر');
+    expect(localSlug('کیا وتر واجب ہے؟')).toBe('کیا-وتر-واجب-ہے');
+    expect(localSlug('Is Witr obligatory?')).toBe('is-witr-obligatory');
+  });
+
+  it("opens the version whose language the address is in, whatever the prefix", async () => {
+    await savePost(samplePost({ langs: { ...samplePost().langs, ur: { q: 'کیا وتر واجب ہے؟', a: 'وتر سنت مؤکدہ ہے۔' } } }));
+    expect((await findPost('کیا-وتر-واجب-ہے', 'ar'))?.lang).toBe('ur');
+    expect((await findPost(encodeURIComponent('ما-حكم-الوتر'), 'en'))?.lang).toBe('ar');
+    // Old addresses (the id) still work.
+    expect((await findPost('witr-ruling', 'ur'))?.lang).toBe('ur');
+    expect(await findPost('nothing-here', 'ar')).toBeNull();
+
+    const res = response();
+    await blogHandler({ method: 'GET', headers: {}, query: { slug: 'کیا-وتر-واجب-ہے', lang: 'ar' } } as unknown as VercelRequest, res as unknown as VercelResponse);
+    expect(res.body).toMatchObject({ lang: 'ur', slug: 'کیا-وتر-واجب-ہے', slugs: { ar: 'ما-حكم-الوتر', en: 'witr-ruling', ur: 'کیا-وتر-واجب-ہے' } });
+  });
+
+  it('keeps addresses when a version is corrected, and gives a repeated one a number', async () => {
+    await savePost(samplePost());
+    await savePost(samplePost({ slug: 'witr-ruling-2', langs: { ar: { q: 'ما حكم الوتر؟', a: 'سنة.' } } }));
+    expect((await readPost('witr-ruling-2'))?.langs.ar?.slug).toBe('ما-حكم-الوتر-2');
+    const post = (await readPost('witr-ruling'))!;
+    post.langs.ar = { ...post.langs.ar!, q: 'سؤال آخر تماما' };
+    await savePost(post);
+    expect((await readPost('witr-ruling'))?.langs.ar?.slug).toBe('ما-حكم-الوتر');
   });
 });
 

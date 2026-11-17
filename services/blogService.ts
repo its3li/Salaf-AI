@@ -11,6 +11,9 @@ export interface BlogSummary {
 }
 
 export interface BlogPostView {
+  /** The post's fixed id (used by the admin). */
+  id: string;
+  /** This version's address, in its own language. */
   slug: string;
   lang: Language;
   category: string;
@@ -22,14 +25,22 @@ export interface BlogPostView {
   /** An editor reviewed and approved this language version. */
   reviewed?: boolean;
   languages: Language[];
+  slugs: Partial<Record<Language, string>>;
 }
 
-/** /blog and /blog/<slug> are Arabic; /en|ur|fa/blog[/<slug>] the other languages. */
-export const blogPath = (lang: Language, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${slug}` : ''}`;
+/** /blog and /blog/<slug> are Arabic; /en|ur|fa/blog[/<slug>] the other languages. Slugs are in each language's own words. */
+export const blogPath = (lang: Language, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}`;
 
 export const parseBlogPath = (pathname: string): { lang: Language; slug: string | null } | null => {
-  const match = /^(?:\/(en|ur|fa))?\/blog(?:\/([a-z0-9-]{1,90}))?\/?$/.exec(pathname);
-  return match ? { lang: (match[1] as Language) ?? 'ar', slug: match[2] ?? null } : null;
+  const match = /^(?:\/(en|ur|fa))?\/blog(?:\/([^/]{1,600}))?\/?$/.exec(pathname);
+  if (!match) return null;
+  let slug = match[2] ?? null;
+  try {
+    if (slug) slug = decodeURIComponent(slug).normalize('NFKC');
+  } catch {
+    return null;
+  }
+  return { lang: (match[1] as Language) ?? 'ar', slug };
 };
 
 export const fetchPosts = async (lang: Language, offset = 0) => {

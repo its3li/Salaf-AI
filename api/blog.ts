@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
-import { BLOG_LANGUAGES, listPublishedSlugs, readPost, readPosts, visibleLanguages, type BlogPost } from './_lib/blog.js';
+import { BLOG_LANGUAGES, findPost, listPublishedSlugs, readPosts, slugFor, visibleLanguages, type BlogPost } from './_lib/blog.js';
 import type { ReplyLanguage } from './_lib/research.js';
 import { clip, plainAnswer } from './_lib/pageTemplate.js';
 
@@ -21,8 +21,10 @@ export const shownLanguage = (post: BlogPost, lang: ReplyLanguage) => {
 export const postView = (post: BlogPost, lang: ReplyLanguage) => {
     const shown = shownLanguage(post, lang)!;
     const version = post.langs[shown]!;
+    const languages = visibleLanguages(post);
     return {
-        slug: post.slug,
+        id: post.slug,
+        slug: slugFor(post, shown),
         lang: shown,
         category: post.category,
         createdAt: post.createdAt,
@@ -32,13 +34,15 @@ export const postView = (post: BlogPost, lang: ReplyLanguage) => {
         ...(version.editedAt ? { editedAt: version.editedAt } : {}),
         // Reviewers' names and notes stay private; the page only says it was reviewed.
         ...(version.review?.status === 'approved' ? { reviewed: true } : {}),
-        languages: visibleLanguages(post),
+        languages,
+        /** Each visible language's own address. */
+        slugs: Object.fromEntries(languages.map((language) => [language, slugFor(post, language)])),
     };
 };
 
 export const postSummary = (post: BlogPost, lang: ReplyLanguage) => {
     const version = post.langs[shownLanguage(post, lang)!]!;
-    return { slug: post.slug, category: post.category, createdAt: post.createdAt, q: version.q, excerpt: clip(plainAnswer(version.a), 220) };
+    return { slug: slugFor(post, shownLanguage(post, lang)!), category: post.category, createdAt: post.createdAt, q: version.q, excerpt: clip(plainAnswer(version.a), 220) };
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -49,13 +53,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const lang = pickLanguage(req.query.lang);
     try {
         if (typeof req.query.slug === 'string') {
-            const post = await readPost(req.query.slug);
-            if (!post || post.status !== 'published' || !shownLanguage(post, lang)) {
+            // The address's own language wins: an Urdu address opens the Urdu version.
+            const found = await findPost(req.query.slug, lang);
+            const post = found?.post;
+            if (!found || !post || post.status !== 'published' || !shownLanguage(post, found.lang)) {
                 res.setHeader('Cache-Control', 'no-store');
                 return res.status(404).json({ error: { code: 'POST_NOT_FOUND' } });
             }
             res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
-            return res.status(200).json(postView(post, lang));
+            return res.status(200).json(postView(post, found.lang));
         }
         const offset = Math.max(0, Math.min(10_000, Number(req.query.offset) || 0));
         const slugs = await listPublishedSlugs(offset, PAGE_SIZE + 1);

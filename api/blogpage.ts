@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
-import { BLOG_LANGUAGES, listPublishedSlugs, readPost, readPosts, visibleLanguages, type BlogPost } from './_lib/blog.js';
+import { BLOG_LANGUAGES, findPost, listPublishedSlugs, readPosts, slugFor, visibleLanguages, type BlogPost } from './_lib/blog.js';
 import type { ReplyLanguage } from './_lib/research.js';
 import { SITE, SITE_NAME, DIR, applyPageMeta, clip, escapeHtml, injectRoot, loadTemplate, paragraphs, plainAnswer } from './_lib/pageTemplate.js';
 import { postSummary, shownLanguage } from './blog.js';
@@ -12,7 +12,8 @@ import { handleSitemap } from './_lib/sitemap.js';
  * page with its own title, description and hreflang links, and the post as plain text inside.
  */
 
-export const blogPath = (lang: string, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${slug}` : ''}`;
+/** Slugs are in each language's own letters, so they are percent-encoded in addresses. */
+export const blogPath = (lang: string, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}`;
 
 const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answer: string; edited: string }> = {
     ar: {
@@ -48,14 +49,14 @@ export const renderPostPage = (template: string, post: BlogPost, lang: ReplyLang
         lang,
         title: `${clip(version.q, 90)} | ${SITE_NAME[lang]}`,
         description: clip(plainAnswer(version.a), 200),
-        url: `${SITE}${blogPath(lang, post.slug)}`,
+        url: `${SITE}${blogPath(lang, slugFor(post, lang))}`,
         type: 'article',
         alternates: [
             ...visibleLanguages(post).map((language) => ({
                 lang: language,
-                url: `${SITE}${blogPath(language, post.slug)}`,
+                url: `${SITE}${blogPath(language, slugFor(post, language))}`,
             })),
-            { lang: 'x-default', url: `${SITE}${blogPath(visibleLanguages(post)[0] ?? 'ar', post.slug)}` },
+            { lang: 'x-default', url: `${SITE}${blogPath(visibleLanguages(post)[0] ?? 'ar', slugFor(post, visibleLanguages(post)[0] ?? 'ar'))}` },
         ],
     });
     const structured = {
@@ -102,6 +103,14 @@ export const renderIndexPage = (template: string, posts: BlogPost[], lang: Reply
     return injectRoot(html, `<main dir="${DIR[lang]}" lang="${lang}"><h1>${escapeHtml(text.blog)}</h1><p>${escapeHtml(text.blogDescription)}</p><ul>${items}</ul></main>`);
 };
 
+const decodeSlug = (slug: string) => {
+    try {
+        return (slug.includes('%') ? decodeURIComponent(slug) : slug).normalize('NFKC');
+    } catch {
+        return slug;
+    }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     // /sitemap.xml comes here too (vercel.json), keeping within Vercel's function limit.
     if (req.query.sitemap === '1') return handleSitemap(req, res);
@@ -111,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const lang = BLOG_LANGUAGES.includes(req.query.lang as ReplyLanguage) ? (req.query.lang as ReplyLanguage) : 'ar';
     const slug = typeof req.query.slug === 'string' ? req.query.slug : '';
-    const fallbackUrl = `${blogPath(lang, slug || undefined)}?app=1`;
+    const fallbackUrl = `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}?app=1`;
     let template: string;
     try {
         template = await loadTemplate(req);
@@ -123,14 +132,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     try {
         if (slug) {
-            const post = await readPost(slug);
-            if (!post || post.status !== 'published' || !shownLanguage(post, lang)) {
+            const found = await findPost(slug, lang);
+            const post = found?.post;
+            if (!found || !post || post.status !== 'published' || !shownLanguage(post, found.lang)) {
                 res.setHeader('Cache-Control', 'no-store');
                 return res.status(404).send(applyPageMeta(template, { lang, title: TEXT[lang].blog, description: TEXT[lang].blogDescription, url: `${SITE}${blogPath(lang)}`, noindex: true }));
             }
-            // A missing or hidden translation is served in another language at that language's address.
-            const shown = shownLanguage(post, lang)!;
-            if (shown !== lang) return res.redirect(302, blogPath(shown, slug));
+            // Each version lives at its own language's address: an Arabic address shows the Arabic version,
+            // an old or other-language address moves there, and a hidden translation falls back to another language.
+            const shown = shownLanguage(post, found.lang)!;
+            const canonical = blogPath(shown, slugFor(post, shown));
+            if (shown !== lang || slugFor(post, shown) !== decodeSlug(slug)) {
+                res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+                return res.redirect(shown === found.lang ? 301 : 302, canonical);
+            }
             res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
             return res.status(200).send(renderPostPage(template, post, lang));
         }

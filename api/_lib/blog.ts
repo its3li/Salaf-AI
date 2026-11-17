@@ -36,6 +36,8 @@ export interface PostVersion {
     review?: { status: 'approved' | 'changes'; by: string; at: number; note?: string };
     /** Hidden from the public until shown again; the rest of the post stays up. */
     hidden?: boolean;
+    /** This version's address, in its own language's words (/ur/blog/<slug>). Never changes once set. */
+    slug?: string;
 }
 
 /** Languages of a post the public can see, Arabic first. */
@@ -126,12 +128,93 @@ const INDEX_KEY = 'salaf:blog:index';
 const QUEUE_KEY = 'salaf:blog:queue';
 const FOREVER = 20 * 365 * 24 * 3600;
 
-const memory = { posts: new Map<string, string>(), index: new Map<string, number>(), queue: [] as string[] };
+const SLUGS_KEY = 'salaf:blog:slugs';
+
+const memory = { posts: new Map<string, string>(), index: new Map<string, number>(), queue: [] as string[], slugs: new Map<string, string>() };
+
+const ID_PATTERN = /^[a-z0-9-]{1,90}$/;
+const slugField = (lang: ReplyLanguage, slug: string) => `${lang}/${slug}`;
+
+/** A version's address: its own slug, or the post's id for posts made before addresses were translated. */
+export const slugFor = (post: BlogPost, lang: ReplyLanguage) => post.langs[lang]?.slug ?? post.slug;
+
+/** The question's first words as an address: "ما حكم صلاة الوتر؟" → "ما-حكم-صلاة-الوتر". */
+export const localSlug = (text: string) =>
+    text
+        .normalize('NFKC')
+        .toLowerCase()
+        // Arabic-script vowel marks and the stretching tatweel only make addresses harder to type.
+        .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
+        .replace(/[^\p{L}\p{N}]+/gu, '-')
+        .replace(/^-+|-+$/g, '')
+        .split('-')
+        .slice(0, 9)
+        .join('-')
+        .slice(0, 80)
+        .replace(/-+$/g, '');
+
+const slugOwner = async (lang: ReplyLanguage, slug: string) => {
+    const replies = await redis([['HGET', SLUGS_KEY, slugField(lang, slug)]]);
+    const owner = replies ? replies[0] : memory.slugs.get(slugField(lang, slug));
+    return typeof owner === 'string' ? owner : null;
+};
+
+/** Gives every version without an address one in its own language. English keeps the post's id. */
+const assignSlugs = async (post: BlogPost) => {
+    for (const lang of BLOG_LANGUAGES) {
+        const version = post.langs[lang];
+        if (!version || version.slug) continue;
+        const base = lang === 'en' ? post.slug : localSlug(version.q) || post.slug;
+        for (let n = 1; ; n++) {
+            const slug = n === 1 ? base : `${base}-${n}`;
+            const owner = await slugOwner(lang, slug);
+            if (!owner || owner === post.slug || n > 50) {
+                version.slug = n > 50 ? `${base}-${post.slug}` : slug;
+                break;
+            }
+        }
+    }
+};
+
+/**
+ * The post at an address, and the language whose address it is. Old addresses (the post's id)
+ * still work. An address in one language opens that language's version.
+ */
+export const findPost = async (raw: string, lang: ReplyLanguage): Promise<{ post: BlogPost; lang: ReplyLanguage } | null> => {
+    let slug = raw;
+    try {
+        if (slug.includes('%')) slug = decodeURIComponent(slug);
+    } catch {
+        return null;
+    }
+    slug = slug.normalize('NFKC');
+    if (!slug || slug.length > 200) return null;
+    const order = [lang, ...BLOG_LANGUAGES.filter((other) => other !== lang)];
+    const replies = await redis([['HMGET', SLUGS_KEY, ...order.map((other) => slugField(other, slug))]]);
+    const owners = replies ? ((replies[0] as Array<string | null>) ?? []) : order.map((other) => memory.slugs.get(slugField(other, slug)) ?? null);
+    const owned = async (i: number) => {
+        const owner = owners[i];
+        const post = typeof owner === 'string' ? await readPost(owner) : null;
+        return post && slugFor(post, order[i]) === slug ? { post, lang: order[i] } : null;
+    };
+    // The asked language's own address, then an old address (the post's id, which English shares),
+    // then another language's address.
+    const own = await owned(0);
+    if (own) return own;
+    const byId = ID_PATTERN.test(slug) ? await readPost(slug) : null;
+    if (byId) return { post: byId, lang };
+    for (let i = 1; i < order.length; i++) {
+        const other = await owned(i);
+        if (other) return other;
+    }
+    return null;
+};
 
 export const clearBlogMemoryForTests = () => {
     memory.posts.clear();
     memory.index.clear();
     memory.queue.length = 0;
+    memory.slugs.clear();
     memoryReviewers.clear();
 };
 
@@ -141,27 +224,34 @@ const redis = async (commands: Array<Array<string | number>>) => {
 };
 
 export const savePost = async (post: BlogPost) => {
+    await assignSlugs(post);
     const value = JSON.stringify(post);
+    const fields = BLOG_LANGUAGES.filter((lang) => post.langs[lang]).flatMap((lang) => [slugField(lang, slugFor(post, lang)), post.slug]);
     const replies = await redis([
         ['SET', POST_KEY(post.slug), value, 'EX', FOREVER],
         post.status === 'published' ? ['ZADD', INDEX_KEY, post.createdAt, post.slug] : ['ZREM', INDEX_KEY, post.slug],
+        ['HSET', SLUGS_KEY, ...fields],
     ]);
     if (replies) return;
+    for (let i = 0; i < fields.length; i += 2) memory.slugs.set(fields[i], fields[i + 1]);
     memory.posts.set(post.slug, value);
     if (post.status === 'published') memory.index.set(post.slug, post.createdAt);
     else memory.index.delete(post.slug);
 };
 
 export const readPost = async (slug: string): Promise<BlogPost | null> => {
-    if (!/^[a-z0-9-]{1,90}$/.test(slug)) return null;
+    if (!ID_PATTERN.test(slug)) return null;
     const replies = await redis([['GET', POST_KEY(slug)]]);
     const raw = replies ? replies[0] : memory.posts.get(slug);
     return typeof raw === 'string' ? (JSON.parse(raw) as BlogPost) : null;
 };
 
 export const deletePost = async (slug: string) => {
-    const replies = await redis([['DEL', POST_KEY(slug)], ['ZREM', INDEX_KEY, slug]]);
+    const post = await readPost(slug);
+    const fields = post ? BLOG_LANGUAGES.filter((lang) => post.langs[lang]).map((lang) => slugField(lang, slugFor(post, lang))) : [];
+    const replies = await redis([['DEL', POST_KEY(slug)], ['ZREM', INDEX_KEY, slug], ...(fields.length ? [['HDEL', SLUGS_KEY, ...fields]] : [])]);
     if (replies) return;
+    for (const field of fields) memory.slugs.delete(field);
     memory.posts.delete(slug);
     memory.index.delete(slug);
 };
@@ -454,7 +544,7 @@ export const notifyOwner = async (result: PipelineResult) => {
     const webhook = process.env.STATS_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
     if (!webhook) return;
     const content = result.ok
-        ? `📝 New blog post: ${result.post.langs.ar?.q}\n${SITE}/blog/${result.post.slug}`
+        ? `📝 New blog post: ${result.post.langs.ar?.q}\n${SITE}/blog/${encodeURIComponent(slugFor(result.post, 'ar'))}`
         : `⚠️ No blog post published for: ${result.question}\nReason: ${result.reason}${result.issues?.length ? `\n- ${result.issues.join('\n- ')}` : ''}`;
     await fetch(webhook, {
         method: 'POST',

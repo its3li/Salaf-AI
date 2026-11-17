@@ -67,15 +67,15 @@ export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, onNavigate, onAs
   );
 };
 
-const LanguageLinks: React.FC<{ current: Language; languages: Language[]; slug?: string; onNavigate: (path: string) => void }> = ({
+const LanguageLinks: React.FC<{ current: Language; languages: Language[]; slugs?: Partial<Record<Language, string>>; onNavigate: (path: string) => void }> = ({
   current,
   languages,
-  slug,
+  slugs,
   onNavigate,
 }) => (
   <div className="flex flex-wrap items-center gap-1.5" data-testid="blog-languages">
     {languages.map((language) => {
-      const path = blogPath(language, slug);
+      const path = blogPath(language, slugs?.[language]);
       const label = LANGUAGES.find((entry) => entry.code === language)?.name ?? language;
       return (
         <a
@@ -188,7 +188,11 @@ const PostPage: React.FC<{
     fetchPost(slug, lang)
       .then((result) => {
         setPost(result);
-        if (result) document.title = `${result.q} | ${t.appName}`;
+        if (!result) return;
+        document.title = `${result.q} | ${t.appName}`;
+        // Old addresses, or one language's address under another's prefix, show the version's own address.
+        const own = blogPath(result.lang, result.slug);
+        if (window.location.pathname !== own) window.history.replaceState(window.history.state, '', own + window.location.search);
       })
       .catch(() => setFailed(true));
   }, [slug, lang, t]);
@@ -197,7 +201,7 @@ const PostPage: React.FC<{
   if (post === undefined) return <p className="py-16 text-center text-muted">{t.blog.loading}</p>;
   if (post === null) return <p className="py-16 text-center text-muted">{t.blog.notFound}</p>;
 
-  const answer: Message = { id: `blog-${post.slug}`, role: 'model', text: post.a, timestamp: new Date(post.createdAt) };
+  const answer: Message = { id: `blog-${post.id}`, role: 'model', text: post.a, timestamp: new Date(post.createdAt) };
 
   return (
     <article>
@@ -231,7 +235,7 @@ const PostPage: React.FC<{
       {post.languages.length > 1 && (
         <div className="mb-6 mt-3 flex flex-wrap items-center gap-2 text-[0.85rem] text-faint">
           {t.blog.otherLanguages}:
-          <LanguageLinks current={post.lang} languages={post.languages} slug={post.slug} onNavigate={onNavigate} />
+          <LanguageLinks current={post.lang} languages={post.languages} slugs={post.slugs} onNavigate={onNavigate} />
         </div>
       )}
 
