@@ -16,6 +16,7 @@ import {
     removeQueuedQuestion,
     removeReviewer,
     runDaily,
+    DAILY_SLOTS,
     savePost,
     type BlogPost,
     type Editor,
@@ -91,7 +92,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (req.query.task !== 'daily' || !sameSecret(bearer(req), process.env.CRON_SECRET)) {
                 return res.status(401).json({ error: { code: 'UNAUTHORIZED' } });
             }
-            const result = await runDaily(signal);
+            const slot = Math.min(DAILY_SLOTS, Math.max(1, Number(req.query.slot) || 1));
+            const result = await runDaily(signal, { slot });
             console.info('[api/blogadmin] daily run', { ok: result.ok, slug: result.ok ? result.post.slug : undefined, reason: result.ok ? undefined : result.reason });
             return res.status(200).json(result);
         }

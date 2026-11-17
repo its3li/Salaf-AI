@@ -572,20 +572,29 @@ export const notifyOwner = async (result: PipelineResult) => {
     }).catch(() => undefined);
 };
 
-const categoryForDay = (now: number) => CATEGORIES[Math.floor(now / 86_400_000) % CATEGORIES.length];
+/** Scheduled posts a day (vercel.json has one cron per slot: 06:00 and 15:00 UTC). */
+export const DAILY_SLOTS = 2;
+
+/** Topics take turns across the day's slots, so consecutive posts differ. */
+const categoryForSlot = (now: number, slot: number) => CATEGORIES[(Math.floor(now / 86_400_000) * DAILY_SLOTS + slot - 1) % CATEGORIES.length];
 
 /**
  * Today's post: a question the owner queued, or a new one Salaf AI chooses. Runs once a day even
  * if the schedule fires twice.
  */
-export const runDaily = async (signal: AbortSignal, { force = false } = {}): Promise<PipelineResult | { ok: false; reason: 'already-ran' }> => {
+export const runDaily = async (
+    signal: AbortSignal,
+    { force = false, slot = 1 }: { force?: boolean; slot?: number } = {}
+): Promise<PipelineResult | { ok: false; reason: 'already-ran' }> => {
     if (!getGeminiConfig().apiKey) throw new BlogError(503, 'NOT_CONFIGURED');
     const day = new Date().toISOString().slice(0, 10);
-    if (!force && !(await getStore({ strict: !!process.env.VERCEL }).setTextIfAbsent(`salaf:blog:ran:${day}`, '1', 2 * 86_400))) {
+    // Each slot runs once a day even if the schedule fires twice. Slot 1 keeps the original key.
+    const lock = slot === 1 ? `salaf:blog:ran:${day}` : `salaf:blog:ran:${day}:${slot}`;
+    if (!force && !(await getStore({ strict: !!process.env.VERCEL }).setTextIfAbsent(lock, '1', 2 * 86_400))) {
         return { ok: false, reason: 'already-ran' };
     }
     const queued = await takeQueuedQuestion();
-    const category = categoryForDay(Date.now());
+    const category = categoryForSlot(Date.now(), slot);
     let result: PipelineResult;
     try {
         if (queued) {

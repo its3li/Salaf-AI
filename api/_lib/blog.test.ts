@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import jpeg from 'jpeg-js';
 import { generateGemini } from './gemini';
 import { runResearchTool } from './research';
 import { clearMemoryStoreForTests } from './limits';
@@ -8,7 +9,7 @@ import { clearBlogMemoryForTests, findPost, listAllPosts, localSlug, publishQues
 import blogHandler from '../blog';
 import adminHandler from '../blogadmin';
 import blogPageHandler from '../blogpage';
-import { renderPostPage } from '../blogpage';
+import { renderIndexPage, renderPostPage } from '../blogpage';
 
 vi.mock('./gemini.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./gemini')>()),
@@ -99,6 +100,15 @@ describe('publishing a question', () => {
 });
 
 describe('the daily post', () => {
+  it('runs each of the day\'s slots once', async () => {
+    scriptModel();
+    const first = await runDaily(AbortSignal.timeout(5000), { slot: 1 });
+    await queueQuestion('هل الوتر واجب؟');
+    const second = await runDaily(AbortSignal.timeout(5000), { slot: 2 });
+    expect(first.ok && second.ok).toBe(true);
+    expect(await runDaily(AbortSignal.timeout(5000), { slot: 2 })).toEqual({ ok: false, reason: 'already-ran' });
+  });
+
   it('uses a queued question first, and runs only once a day', async () => {
     scriptModel();
     await queueQuestion('ما حكم الوتر؟');
@@ -154,6 +164,35 @@ describe('admin', () => {
 });
 
 describe('public pages', () => {
+  it('gives each post its own preview picture', async () => {
+    await savePost(samplePost());
+    const res = response();
+    await blogPageHandler({ method: 'GET', headers: {}, query: { og: 'witr-ruling', lang: 'ar' } } as unknown as VercelRequest, res as unknown as VercelResponse);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    const picture = jpeg.decode(res.body as Buffer);
+    expect([picture.width, picture.height]).toEqual([1200, 630]);
+    expect((res.body as Buffer).length).toBeLessThan(300_000);
+
+    const missing = response();
+    await blogPageHandler({ method: 'GET', headers: {}, query: { og: 'nothing', lang: 'ar' } } as unknown as VercelRequest, missing as unknown as VercelResponse);
+    expect(missing.headers.location).toBe('/og-image.jpg');
+  });
+
+  it('lists a topic\'s posts only, on its own page and in the API', async () => {
+    await savePost(samplePost());
+    await savePost(samplePost({ slug: 'tawhid', category: 'aqidah', langs: { ar: { q: 'ما هو التوحيد؟', a: 'إفراد الله بالعبادة.' } } }));
+    const template = '<html lang="ar" dir="rtl"><head><title>x</title><meta name="description" content="d"><link rel="canonical" href="c"></head><body><div id="root"></div></body></html>';
+    const html = renderIndexPage(template, [samplePost(), samplePost({ slug: 'tawhid', category: 'aqidah', langs: { ar: { q: 'ما هو التوحيد؟', a: 'x' } } })], 'ar', 'aqidah');
+    expect(html).toContain('<title>عقيدة | ');
+    expect(html).toContain('<link rel="canonical" href="https://salaf-ai.vercel.app/blog/topic/aqidah">');
+    expect(html).toContain('ما هو التوحيد؟');
+    expect(html).not.toContain('ما حكم الوتر؟');
+
+    const res = response();
+    await blogHandler({ method: 'GET', headers: {}, query: { lang: 'ar', topic: 'aqidah' } } as unknown as VercelRequest, res as unknown as VercelResponse);
+    expect((res.body as { posts: Array<{ q: string }> }).posts.map((post) => post.q)).toEqual(['ما هو التوحيد؟']);
+  });
+
   it('serves a post in the asked language, falling back to Arabic', async () => {
     await savePost(samplePost());
     const res = response();
@@ -178,6 +217,8 @@ describe('public pages', () => {
     await blogPageHandler({ method: 'GET', headers: {}, query: { sitemap: '1' } } as unknown as VercelRequest, res as unknown as VercelResponse);
     expect(String(res.body)).toContain(`<loc>https://salaf-ai.vercel.app/blog/${encodeURIComponent('ما-حكم-الوتر')}</loc>`);
     expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/en/blog/witr-ruling</loc>');
+    expect(String(res.body)).toContain('<loc>https://salaf-ai.vercel.app/ur/blog/topic/fiqh</loc>');
+    expect(String(res.body)).not.toContain('/blog/topic/seerah');
   });
 });
 

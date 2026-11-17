@@ -5,12 +5,14 @@ import { I18nContext, useI18n } from '../i18n/context';
 import { LANGUAGES, textDirection, type Language } from '../i18n/languages';
 import { MessageBubble } from './MessageBubble';
 import type { Message } from '../types';
-import { blogPath, fetchPost, fetchPosts, type BlogPostView, type BlogSummary } from '../services/blogService';
+import { BLOG_TOPICS, blogPath, fetchPost, fetchPosts, topicPath, type BlogPostView, type BlogSummary, type BlogTopic } from '../services/blogService';
 import { createClientUuid } from '../services/ids';
 
 interface BlogViewProps {
   lang: Language;
   slug: string | null;
+  /** Set on a topic page (/blog/topic/fiqh). */
+  topic?: BlogTopic;
   /** Moves within the blog (list ↔ post, another language) without reloading the page. */
   onNavigate: (path: string) => void;
   onAskOwn: () => void;
@@ -20,7 +22,7 @@ interface BlogViewProps {
 const formatDate = (ms: number, lang: Language) => new Intl.DateTimeFormat(lang, { dateStyle: 'long' }).format(new Date(ms));
 
 /** The blog in one language: the list of questions, or one question and its answer. */
-export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, onNavigate, onAskOwn, onContinue }) => {
+export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, topic, onNavigate, onAskOwn, onContinue }) => {
   // The blog speaks the language of its address, whatever the interface language is.
   const t = MESSAGES[lang];
   const dir = textDirection(lang);
@@ -60,22 +62,53 @@ export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, onNavigate, onAs
         {slug ? (
           <PostPage key={`${lang}/${slug}`} lang={lang} slug={slug} back={Back} onNavigate={onNavigate} onAskOwn={onAskOwn} onContinue={onContinue} />
         ) : (
-          <IndexPage key={lang} lang={lang} onNavigate={onNavigate} />
+          <IndexPage key={`${lang}/${topic ?? ''}`} lang={lang} topic={topic} onNavigate={onNavigate} />
         )}
       </main>
     </div>
   );
 };
 
-const LanguageLinks: React.FC<{ current: Language; languages: Language[]; slugs?: Partial<Record<Language, string>>; onNavigate: (path: string) => void }> = ({
-  current,
-  languages,
-  slugs,
-  onNavigate,
-}) => (
+/** "All" and each topic, as links; the current one is highlighted. */
+const TopicLinks: React.FC<{ lang: Language; current?: BlogTopic; onNavigate: (path: string) => void }> = ({ lang, current, onNavigate }) => {
+  const t = MESSAGES[lang];
+  const items: Array<{ key: string; label: string; path: string; active: boolean }> = [
+    { key: 'all', label: t.blog.allTopics, path: blogPath(lang), active: !current },
+    ...BLOG_TOPICS.map((topic) => ({ key: topic, label: t.blog.categories[topic], path: topicPath(lang, topic), active: topic === current })),
+  ];
+  return (
+    <nav aria-label={t.blog.topics} className="mt-4 flex flex-wrap gap-1.5" data-testid="blog-topics">
+      {items.map((item) => (
+        <a
+          key={item.key}
+          href={item.path}
+          aria-current={item.active ? 'page' : undefined}
+          onClick={(event) => {
+            event.preventDefault();
+            onNavigate(item.path);
+          }}
+          className={`rounded-full border px-3 py-1 text-[0.85rem] transition-colors ${
+            item.active ? 'border-gold/50 bg-gold-soft font-semibold text-gold-text' : 'border-line text-muted hover:bg-surface-2 hover:text-text'
+          }`}
+        >
+          {item.label}
+        </a>
+      ))}
+    </nav>
+  );
+};
+
+const LanguageLinks: React.FC<{
+  current: Language;
+  languages: Language[];
+  slugs?: Partial<Record<Language, string>>;
+  /** Full addresses per language, used instead of slugs (topic pages). */
+  paths?: Partial<Record<Language, string>>;
+  onNavigate: (path: string) => void;
+}> = ({ current, languages, slugs, paths, onNavigate }) => (
   <div className="flex flex-wrap items-center gap-1.5" data-testid="blog-languages">
     {languages.map((language) => {
-      const path = blogPath(language, slugs?.[language]);
+      const path = paths?.[language] ?? blogPath(language, slugs?.[language]);
       const label = LANGUAGES.find((entry) => entry.code === language)?.name ?? language;
       return (
         <a
@@ -99,25 +132,25 @@ const LanguageLinks: React.FC<{ current: Language; languages: Language[]; slugs?
   </div>
 );
 
-const IndexPage: React.FC<{ lang: Language; onNavigate: (path: string) => void }> = ({ lang, onNavigate }) => {
+const IndexPage: React.FC<{ lang: Language; topic?: BlogTopic; onNavigate: (path: string) => void }> = ({ lang, topic, onNavigate }) => {
   const t = MESSAGES[lang];
   const [posts, setPosts] = useState<BlogSummary[] | null>(null);
   const [next, setNext] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    document.title = `${t.blog.title} | ${t.appName}`;
-    fetchPosts(lang)
+    document.title = topic ? `${t.blog.categories[topic]} | ${t.blog.title}` : `${t.blog.title} | ${t.appName}`;
+    fetchPosts(lang, 0, topic)
       .then((page) => {
         setPosts(page.posts);
         setNext(page.next);
       })
       .catch(() => setFailed(true));
-  }, [lang, t]);
+  }, [lang, topic, t]);
 
   const loadMore = () => {
     if (next === null) return;
-    void fetchPosts(lang, next).then((page) => {
+    void fetchPosts(lang, next, topic).then((page) => {
       setPosts((current) => [...(current ?? []), ...page.posts]);
       setNext(page.next);
     });
@@ -126,9 +159,15 @@ const IndexPage: React.FC<{ lang: Language; onNavigate: (path: string) => void }
   return (
     <>
       <header className="mb-8">
-        <h1 className="mb-2 text-[2rem] font-bold">{t.blog.title}</h1>
-        <p className="mb-4 text-[1.02rem] leading-relaxed text-muted">{t.blog.subtitle}</p>
-        <LanguageLinks current={lang} languages={['ar', 'en', 'ur', 'fa']} onNavigate={onNavigate} />
+        <h1 className="mb-2 text-[2rem] font-bold">{topic ? t.blog.categories[topic] : t.blog.title}</h1>
+        <p className="mb-4 text-[1.02rem] leading-relaxed text-muted">{topic ? t.blog.topicSubtitle(t.blog.categories[topic]) : t.blog.subtitle}</p>
+        <LanguageLinks
+          current={lang}
+          languages={['ar', 'en', 'ur', 'fa']}
+          paths={topic ? { ar: topicPath('ar', topic), en: topicPath('en', topic), ur: topicPath('ur', topic), fa: topicPath('fa', topic) } : undefined}
+          onNavigate={onNavigate}
+        />
+        <TopicLinks lang={lang} current={topic} onNavigate={onNavigate} />
       </header>
 
       {!posts && !failed && <p className="py-16 text-center text-muted">{t.blog.loading}</p>}
@@ -218,7 +257,20 @@ const PostPage: React.FC<{
       </a>
 
       <p className="mb-2 flex items-center gap-2 text-[0.82rem] text-faint">
-        <span className="rounded-full bg-gold-soft px-2 py-0.5 font-medium text-gold-text">{t.blog.categories[post.category] ?? post.category}</span>
+        {(BLOG_TOPICS as readonly string[]).includes(post.category) ? (
+          <a
+            href={topicPath(post.lang, post.category as BlogTopic)}
+            onClick={(event) => {
+              event.preventDefault();
+              onNavigate(topicPath(post.lang, post.category as BlogTopic));
+            }}
+            className="rounded-full bg-gold-soft px-2 py-0.5 font-medium text-gold-text hover:underline"
+          >
+            {t.blog.categories[post.category]}
+          </a>
+        ) : (
+          <span className="rounded-full bg-gold-soft px-2 py-0.5 font-medium text-gold-text">{t.blog.categories[post.category] ?? post.category}</span>
+        )}
         {t.blog.published(formatDate(post.createdAt, lang))}
       </p>
       <h1 className="mb-4 text-[1.7rem] font-bold leading-snug md:text-[2rem]">{post.q}</h1>

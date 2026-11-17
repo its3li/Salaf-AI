@@ -31,7 +31,16 @@ export interface BlogPostView {
 /** /blog and /blog/<slug> are Arabic; /en|ur|fa/blog[/<slug>] the other languages. Slugs are in each language's own words. */
 export const blogPath = (lang: Language, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}`;
 
-export const parseBlogPath = (pathname: string): { lang: Language; slug: string | null } | null => {
+/** A topic's page: /blog/topic/fiqh, /ur/blog/topic/fiqh. */
+export const BLOG_TOPICS = ['aqidah', 'fiqh', 'hadith', 'tafsir', 'adab', 'seerah'] as const;
+export type BlogTopic = (typeof BLOG_TOPICS)[number];
+export const topicPath = (lang: Language, topic: BlogTopic) => `${blogPath(lang)}/topic/${topic}`;
+
+export const parseBlogPath = (pathname: string): { lang: Language; slug: string | null; topic?: BlogTopic } | null => {
+  const topicMatch = /^(?:\/(en|ur|fa))?\/blog\/topic\/([a-z]+)\/?$/.exec(pathname);
+  if (topicMatch && (BLOG_TOPICS as readonly string[]).includes(topicMatch[2])) {
+    return { lang: (topicMatch[1] as Language) ?? 'ar', slug: null, topic: topicMatch[2] as BlogTopic };
+  }
   const match = /^(?:\/(en|ur|fa))?\/blog(?:\/([^/]{1,600}))?\/?$/.exec(pathname);
   if (!match) return null;
   let slug = match[2] ?? null;
@@ -43,8 +52,8 @@ export const parseBlogPath = (pathname: string): { lang: Language; slug: string 
   return { lang: (match[1] as Language) ?? 'ar', slug };
 };
 
-export const fetchPosts = async (lang: Language, offset = 0) => {
-  const response = await fetch(`/api/blog?lang=${lang}&offset=${offset}`);
+export const fetchPosts = async (lang: Language, offset = 0, topic?: BlogTopic) => {
+  const response = await fetch(`/api/blog?lang=${lang}&offset=${offset}${topic ? `&topic=${topic}` : ''}`);
   if (!response.ok) throw new Error(`Blog list failed (${response.status})`);
   return (await response.json()) as { posts: BlogSummary[]; next: number | null };
 };

@@ -205,6 +205,9 @@ export const en: Messages = {
     reviewed: 'Answered by Salaf AI, then reviewed and approved by an editor.',
     published: (date: string) => `Published ${date}`,
     otherLanguages: 'Other languages',
+    allTopics: 'All',
+    topics: 'Topics',
+    topicSubtitle: (topic: string) => `Questions on ${topic}, answered with evidence from the Quran and authentic Sunnah as the Salaf understood them.`,
     categories: { aqidah: 'Aqidah', fiqh: 'Fiqh', hadith: 'Hadith', tafsir: 'Tafsir', adab: 'Manners & adhkar', seerah: 'Seerah' } as Record<string, string>,
   },
 

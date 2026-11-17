@@ -2,11 +2,13 @@
   "functions": {
     "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true },
     "api/media.ts": { "maxDuration": 300 },
-    "api/blogadmin.ts": { "maxDuration": 300 }
+    "api/blogadmin.ts": { "maxDuration": 300 },
+    "api/blogpage.ts": { "includeFiles": "api/_lib/og/**" }
   },
   "crons": [
     { "path": "/api/stats", "schedule": "10 0 * * *" },
-    { "path": "/api/blogadmin?task=daily", "schedule": "0 6 * * *" }
+    { "path": "/api/blogadmin?task=daily", "schedule": "0 6 * * *" },
+    { "path": "/api/blogadmin?task=daily&slot=2", "schedule": "0 15 * * *" }
   ],
   "rewrites": [
     { "source": "/about", "destination": "/about.html" },
@@ -14,6 +16,16 @@
     {
       "source": "/blog",
       "destination": "/api/blogpage?lang=ar",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
+    {
+      "source": "/blog/topic/:topic",
+      "destination": "/api/blogpage?lang=ar&topic=:topic",
+      "missing": [{ "type": "query", "key": "app" }]
+    },
+    {
+      "source": "/:lang(en|ur|fa)/blog/topic/:topic",
+      "destination": "/api/blogpage?lang=:lang&topic=:topic",
       "missing": [{ "type": "query", "key": "app" }]
     },
     {

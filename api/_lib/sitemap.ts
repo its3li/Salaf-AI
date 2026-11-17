@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
-import { BLOG_LANGUAGES, listPublishedSlugs, readPosts, slugFor, visibleLanguages } from './blog.js';
+import { BLOG_LANGUAGES, CATEGORIES, listPublishedSlugs, readPosts, slugFor, visibleLanguages } from './blog.js';
 import { SITE } from './pageTemplate.js';
 
 const blogPath = (lang: string, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}`;
@@ -17,6 +17,13 @@ export async function handleSitemap(_req: VercelRequest, res: VercelResponse) {
     ];
     try {
         const posts = await readPosts(await listPublishedSlugs(0, 5000));
+        for (const topic of CATEGORIES) {
+            const inTopic = posts.filter((post) => post.category === topic);
+            if (inTopic.length === 0) continue;
+            const lastmod = day(Math.max(...inTopic.map((post) => post.updatedAt)));
+            const alternates = BLOG_LANGUAGES.map((lang) => ({ lang, loc: `${SITE}${blogPath(lang)}/topic/${topic}` }));
+            for (const lang of BLOG_LANGUAGES) urls.push({ loc: `${SITE}${blogPath(lang)}/topic/${topic}`, lastmod, priority: '0.6', alternates });
+        }
         for (const post of posts) {
             const languages = visibleLanguages(post);
             const alternates = languages.map((lang) => ({ lang, loc: `${SITE}${blogPath(lang, slugFor(post, lang))}` }));
