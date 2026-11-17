@@ -43,7 +43,7 @@ export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, topic, onNavigat
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 px-4">
           <button type="button" onClick={onAskOwn} className="flex items-center gap-2">
             <img src="/logo.png" alt="" width="28" height="28" className="h-7 w-7" />
-            <span className="text-[1.05rem] font-bold">{t.appName}</span>
+            <span className="whitespace-nowrap text-[1.05rem] font-bold">{t.appName}</span>
           </button>
           <div className="flex items-center gap-1.5">
             <LanguageMenu current={lang} paths={languagePaths} onNavigate={onNavigate} />
@@ -53,14 +53,14 @@ export const BlogView: React.FC<BlogViewProps> = ({ lang, slug, topic, onNavigat
                 event.preventDefault();
                 onNavigate(blogPath(lang));
               }}
-              className="h-9 rounded-full px-3 text-[0.9rem] leading-9 text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              className="hidden h-9 whitespace-nowrap rounded-full px-3 text-[0.9rem] leading-9 text-muted transition-colors hover:bg-surface-2 hover:text-text sm:block"
             >
               {t.blog.nav}
             </a>
             <button
               type="button"
               onClick={onAskOwn}
-              className="h-9 rounded-full bg-text px-4 text-[0.9rem] font-semibold text-bg transition-transform hover:scale-[1.03] active:scale-95"
+              className="h-9 whitespace-nowrap rounded-full bg-text px-3.5 text-[0.9rem] font-semibold text-bg transition-transform hover:scale-[1.03] active:scale-95 sm:px-4"
             >
               {t.blog.askOwn}
             </button>
