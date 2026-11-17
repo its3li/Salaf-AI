@@ -26,6 +26,8 @@ const COUNTRY_LANGUAGE: Record<string, Language> = {
 };
 
 const LANGUAGE_KEY = 'salaf-ai-language';
+const BLOG_LANGUAGE_KEY = 'salaf-ai-blog-language';
+const COUNTRY_KEY = 'salaf-ai-country';
 const GEO_TIMEOUT_MS = 1500;
 
 export const isLanguage = (value: unknown): value is Language =>
@@ -57,13 +59,25 @@ const languageFromBrowser = (): Language | null => {
 };
 
 const fetchCountry = async (): Promise<string | null> => {
+  try {
+    const cached = sessionStorage.getItem(COUNTRY_KEY);
+    if (cached !== null) return cached || null;
+  } catch {
+    // Asked again below.
+  }
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), GEO_TIMEOUT_MS);
   try {
     const response = await fetch('/api/geo', { signal: controller.signal });
     if (!response.ok) return null;
     const { country } = (await response.json()) as { country?: unknown };
-    return typeof country === 'string' ? country : null;
+    const found = typeof country === 'string' ? country : null;
+    try {
+      sessionStorage.setItem(COUNTRY_KEY, found ?? '');
+    } catch {
+      // Asked again next time.
+    }
+    return found;
   } catch {
     return null;
   } finally {
@@ -86,4 +100,30 @@ export const resolveInitialLanguage = async (): Promise<Language> => {
     return language;
   }
   return languageFromBrowser() ?? DEFAULT_LANGUAGE;
+};
+
+/** Remembers the language a reader picked from the blog's language menu. */
+export const storeBlogLanguage = (language: Language) => {
+  try {
+    localStorage.setItem(BLOG_LANGUAGE_KEY, language);
+  } catch {
+    // The choice simply won't persist.
+  }
+};
+
+/**
+ * The blog's language when it is opened from the app: the reader's own pick on the blog, then the
+ * language of their country (English outside the Arab countries, Pakistan, Iran and Afghanistan),
+ * then the app's saved language, then English.
+ */
+export const resolveBlogLanguage = async (): Promise<Language> => {
+  try {
+    const picked = localStorage.getItem(BLOG_LANGUAGE_KEY);
+    if (isLanguage(picked)) return picked;
+  } catch {
+    // Fall through to the country.
+  }
+  const country = await fetchCountry();
+  if (country) return COUNTRY_LANGUAGE[country] ?? 'en';
+  return readStoredLanguage() ?? 'en';
 };

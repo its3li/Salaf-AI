@@ -18,6 +18,7 @@ import { shareIdFromPath } from './services/shareService';
 import { BlogView } from './components/BlogView';
 import { AdminView } from './components/AdminView';
 import { blogPath, parseBlogPath } from './services/blogService';
+import { resolveBlogLanguage } from './i18n/languages';
 import type { Message } from './types';
 import { useChats } from './hooks/useChats';
 import { usePwaInstall } from './hooks/usePwaInstall';
@@ -54,7 +55,7 @@ const App: React.FC = () => {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { theme, toggleTheme } = useTheme();
   const { dialogState, setInputValue, showDialog, handleConfirm, handleCancel } = useAppDialog();
   const { isInstalled, canPromptInstall, promptInstall, isGuideOpen, openInstallGuide, closeInstallGuide } =
@@ -157,6 +158,9 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  // The blog opens in the reader's language (see resolveBlogLanguage), not necessarily the app's.
+  const openBlog = () => void resolveBlogLanguage().then((blogLanguage) => goTo(blogPath(blogLanguage)));
+
   const navigate = (next: 'chat' | 'about') => goTo(next === 'about' ? ABOUT_PATH : '/');
 
   const retryableErrorMessageId = useMemo(() => {
@@ -251,7 +255,7 @@ const App: React.FC = () => {
           }}
         />
       ) : view === 'about' ? (
-        <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} onOpenBlog={() => goTo(blogPath(language))} />
+        <AboutPage onStartChat={() => navigate('chat')} onInstallClick={openInstallGuide} onOpenBlog={openBlog} />
       ) : (
         <div className="flex h-dvh overflow-hidden bg-bg text-text">
           <Sidebar
@@ -263,7 +267,7 @@ const App: React.FC = () => {
               setIsSidebarOpen(false);
             }}
             onOpenAbout={() => navigate('about')}
-            onOpenBlog={() => goTo(blogPath(language))}
+            onOpenBlog={openBlog}
             onInstall={isInstalled ? undefined : openInstallGuide}
             chats={chats}
             activeChatId={activeChatId}

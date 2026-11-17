@@ -210,6 +210,7 @@ export const ar = {
     reviewed: 'أجاب عنه باحث السلف، وراجعه أحد المحررين وأقرّه.',
     published: (date: string) => `نُشر في ${date}`,
     otherLanguages: 'بلغات أخرى',
+    language: 'اللغة',
     allTopics: 'الكل',
     topics: 'الموضوعات',
     topicSubtitle: (topic: string) => `أسئلة في ${topic} وأجوبتها بالدليل من القرآن والسنة الصحيحة بفهم السلف.`,

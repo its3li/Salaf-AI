@@ -200,6 +200,7 @@ export const fa: Messages = {
     reviewed: 'باحث السلف پاسخ داده و سپس یکی از ویراستاران آن را بررسی و تأیید کرده است.',
     published: (date: string) => `منتشرشده در ${date}`,
     otherLanguages: 'زبان‌های دیگر',
+    language: 'زبان',
     allTopics: 'همه',
     topics: 'موضوعات',
     topicSubtitle: (topic: string) => `پرسش‌های ${topic} و پاسخ آن‌ها با دلایل قرآن و سنت صحیح به فهم سلف.`,
