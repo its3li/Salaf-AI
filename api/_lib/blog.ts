@@ -276,6 +276,10 @@ export const listAllPosts = async (): Promise<BlogPost[]> => {
     const keys = replies ? ((replies[0] as string[]) ?? []) : [...memory.posts.keys()].map(POST_KEY);
     const slugs = keys.map((key) => key.slice(POST_KEY('').length));
     const posts = await readPosts(slugs);
+    // Posts saved before each language had its own address get theirs here (the admin page and the daily run).
+    for (const post of posts) {
+        if (BLOG_LANGUAGES.some((lang) => post.langs[lang] && !post.langs[lang]!.slug)) await savePost(post);
+    }
     return posts.sort((a, b) => b.createdAt - a.createdAt);
 };
 
