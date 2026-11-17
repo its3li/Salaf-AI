@@ -47,6 +47,11 @@ export const buildReport = (stats: DayStats, weekUsers: number) => {
                     { name: 'اللغات', value: languages || '—' },
                     { name: 'المقاطع', value: describeMedia(stats) },
                     { name: 'مستخدمون مختلفون في آخر ٧ أيام', value: formatNumber(weekUsers) },
+                    {
+                        name: 'المدونة',
+                        value: `${formatNumber(stats.blogViews)} قراءة من ${formatNumber(stats.blogReaders)} قارئ · ${formatNumber(stats.blogAskMore)} ضغطوا «اسأل أكثر»`,
+                    },
+                    { name: 'محادثات منشورة فُتحت', value: formatNumber(stats.shareOpens), inline: true },
                 ],
                 footer: { text: 'اليوم من منتصف الليل إلى منتصف الليل بتوقيت UTC (٣ فجرًا بتوقيت السعودية)' },
             },

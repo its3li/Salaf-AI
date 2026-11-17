@@ -4,7 +4,7 @@ import { BLOG_LANGUAGES, CATEGORIES, findPost, listPublishedSlugs, readPost, rea
 import { renderPostImage } from './_lib/ogImage.js';
 import type { ReplyLanguage } from './_lib/research.js';
 import { SITE, SITE_NAME, DIR, applyPageMeta, clip, escapeHtml, injectRoot, loadTemplate, paragraphs, plainAnswer } from './_lib/pageTemplate.js';
-import { postSummary, shownLanguage } from './blog.js';
+import { postSummary, relatedPosts, shownLanguage } from './blog.js';
 import { handleSitemap } from './_lib/sitemap.js';
 
 /*
@@ -30,7 +30,7 @@ export const postImageUrl = (post: BlogPost, lang: ReplyLanguage) =>
 
 export const blogPath = (lang: string, slug?: string) => `${lang === 'ar' ? '' : `/${lang}`}/blog${slug ? `/${encodeURIComponent(slug)}` : ''}`;
 
-const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answer: string; edited: string; topicDescription: (topic: string) => string; topics: string }> = {
+const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answer: string; edited: string; topicDescription: (topic: string) => string; topics: string; related: string }> = {
     ar: {
         blog: 'مدونة باحث السلف: سؤال وجواب بالدليل',
         blogDescription: 'كل يوم سؤال شرعي وجوابه بأدلته من القرآن والسنة الصحيحة بفهم السلف، مع التحقق من الأحاديث.',
@@ -38,6 +38,7 @@ const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answe
         edited: 'راجع المحرر هذا الجواب وصحّحه.',
         topicDescription: (topic) => `أسئلة في ${topic} وأجوبتها بالدليل من القرآن والسنة الصحيحة بفهم السلف.`,
         topics: 'الموضوعات',
+        related: 'أسئلة ذات صلة',
     },
     en: {
         blog: 'Salaf AI blog: questions answered with evidence',
@@ -46,6 +47,7 @@ const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answe
         edited: 'This answer was reviewed and corrected by the editor.',
         topicDescription: (topic) => `Questions on ${topic}, answered with evidence from the Quran and authentic Sunnah as the Salaf understood them.`,
         topics: 'Topics',
+        related: 'Related questions',
     },
     ur: {
         blog: 'باحث السلف بلاگ: دلیل کے ساتھ سوال و جواب',
@@ -54,6 +56,7 @@ const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answe
         edited: 'اس جواب کا مدیر نے جائزہ لیا اور اصلاح کی۔',
         topicDescription: (topic) => `${topic} کے سوالات اور ان کے جوابات، قرآن اور صحیح سنت کے دلائل کے ساتھ سلف کے فہم کے مطابق۔`,
         topics: 'موضوعات',
+        related: 'متعلقہ سوالات',
     },
     fa: {
         blog: 'وبلاگ باحث السلف: پرسش و پاسخ با دلیل',
@@ -62,10 +65,11 @@ const TEXT: Record<ReplyLanguage, { blog: string; blogDescription: string; answe
         edited: 'این پاسخ را ویراستار بررسی و اصلاح کرده است.',
         topicDescription: (topic) => `پرسش‌های ${topic} و پاسخ آن‌ها با دلایل قرآن و سنت صحیح به فهم سلف.`,
         topics: 'موضوعات',
+        related: 'پرسش‌های مرتبط',
     },
 };
 
-export const renderPostPage = (template: string, post: BlogPost, lang: ReplyLanguage) => {
+export const renderPostPage = (template: string, post: BlogPost, lang: ReplyLanguage, related: Array<{ slug: string; q: string }> = []) => {
     const version = post.langs[lang]!;
     const text = TEXT[lang];
     const html = applyPageMeta(template, {
@@ -100,6 +104,9 @@ export const renderPostPage = (template: string, post: BlogPost, lang: ReplyLang
         version.editedAt ? `<p>${escapeHtml(text.edited)}</p>` : '',
         `<h2>${escapeHtml(text.answer)}</h2>`,
         paragraphs(plainAnswer(version.a)),
+        related.length
+            ? `<h2>${escapeHtml(text.related)}</h2><ul>${related.map((item) => `<li><a href="${blogPath(lang, item.slug)}">${escapeHtml(item.q)}</a></li>`).join('')}</ul>`
+            : '',
         '</article>',
         // "<" is escaped so nothing in a post can close this script tag.
         `<script type="application/ld+json">${JSON.stringify(structured).replace(/</g, '\\u003c')}</script>`,
@@ -201,7 +208,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.redirect(shown === found.lang ? 301 : 302, canonical);
             }
             res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
-            return res.status(200).send(renderPostPage(template, post, lang));
+            const related = await relatedPosts(post, lang).catch(() => []);
+            return res.status(200).send(renderPostPage(template, post, lang, related));
         }
         const topic = (CATEGORIES as readonly string[]).includes(String(req.query.topic)) ? (req.query.topic as Category) : undefined;
         if (req.query.topic !== undefined && !topic) {

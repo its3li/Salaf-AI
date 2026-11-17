@@ -1,8 +1,11 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMemoryStoreForTests } from './limits';
 import { readAnswerRecord, saveAnswerRecord, verifyContext, type Receipt } from './answerRecords';
 import { buildConversation, createShare, deleteShare, readShare } from './shares';
-import { renderSharePage, plainAnswer } from './sharedPage';
+import jpeg from 'jpeg-js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { handleShareImage, renderSharePage, plainAnswer } from './sharedPage';
 
 afterEach(() => clearMemoryStoreForTests());
 
@@ -117,6 +120,28 @@ describe('share page', () => {
     expect(html).toContain(`<link rel="canonical" href="https://salaf-ai.vercel.app/s/${id}">`);
     expect(html).toContain('<div id="root"><article');
     expect(html).not.toContain('<script>الوتر');
+  });
+
+  it('gives a shared conversation its own preview picture, and stops when sharing stops', async () => {
+    const { first, second } = await conversation();
+    const { id, deleteToken } = await createShare([first, second]);
+    const share = await readShare(id);
+    expect(renderSharePage(template.replace('</head>', '<meta property="og:image" content="x"></head>'), share, id)).toContain(`content="https://salaf-ai.vercel.app/api/share?og=${id}"`);
+
+    const res = { headers: {} as Record<string, unknown>, statusCode: 200, body: undefined as unknown };
+    const fake = {
+      setHeader: (key: string, value: unknown) => { res.headers[key.toLowerCase()] = value; return fake; },
+      status: (code: number) => { res.statusCode = code; return fake; },
+      send: (value: unknown) => { res.body = value; return fake; },
+      redirect: (code: number, url: string) => { res.statusCode = code; res.headers.location = url; return fake; },
+    };
+    await handleShareImage({ query: { og: id } } as unknown as VercelRequest, fake as unknown as VercelResponse);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(jpeg.decode(res.body as Buffer).width).toBe(1200);
+
+    await deleteShare(id, deleteToken);
+    await handleShareImage({ query: { og: id } } as unknown as VercelRequest, fake as unknown as VercelResponse);
+    expect(res.headers.location).toBe('/og-image.jpg');
   });
 
   it('tells search engines not to index a missing share', () => {

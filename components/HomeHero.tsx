@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { useI18n } from '../i18n/context';
+import { blogPath, fetchPosts, type BlogSummary } from '../services/blogService';
 
 interface HomeHeroProps {
   onPickQuestion: (question: string) => void;
+  /** Opens a blog address inside the app. */
+  onOpenBlogPath?: (path: string) => void;
   /** The composer, placed in the middle of the screen while the conversation is empty. */
   children: React.ReactNode;
 }
@@ -11,8 +15,26 @@ interface HomeHeroProps {
 const delay = (ms: number) => ({ '--d': `${ms}ms` }) as React.CSSProperties;
 
 /** The empty conversation: what this is, the input front and centre, and a few ways to start. */
-export const HomeHero: React.FC<HomeHeroProps> = ({ onPickQuestion, children }) => {
-  const { t } = useI18n();
+export const HomeHero: React.FC<HomeHeroProps> = ({ onPickQuestion, onOpenBlogPath, children }) => {
+  const { t, language } = useI18n();
+  // The newest blog post in the interface language, shown under the suggestions.
+  const [latest, setLatest] = useState<{ language: string; post: BlogSummary } | null>(null);
+
+  const showLatest = Boolean(onOpenBlogPath);
+  useEffect(() => {
+    if (!showLatest) return;
+    let cancelled = false;
+    fetchPosts(language)
+      .then((page) => {
+        if (!cancelled && page.posts[0]) setLatest({ language, post: page.posts[0] });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [language, showLatest]);
+
+  const post = latest?.language === language ? latest.post : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[44rem] flex-1 flex-col justify-center py-8">
@@ -48,6 +70,25 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ onPickQuestion, children }) 
           </button>
         ))}
       </div>
+
+      {post && onOpenBlogPath && (
+        <a
+          href={blogPath(language, post.slug)}
+          onClick={(event) => {
+            event.preventDefault();
+            onOpenBlogPath(blogPath(language, post.slug));
+          }}
+          data-testid="home-latest-post"
+          style={delay(560)}
+          className="rise mt-4 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold-soft/40 px-4 py-3 text-start transition-all hover:-translate-y-0.5 hover:border-gold/60"
+        >
+          <BookOpen size={20} strokeWidth={1.9} aria-hidden="true" className="shrink-0 text-gold-text" />
+          <span className="min-w-0">
+            <span className="block text-[0.75rem] font-semibold text-gold-text">{t.blog.latest}</span>
+            <span className="block truncate text-[0.95rem]">{post.q}</span>
+          </span>
+        </a>
+      )}
 
       <p className="rise mt-8 text-center text-[0.8rem] leading-relaxed text-faint" style={delay(600)}>
         {t.home.disclaimer}

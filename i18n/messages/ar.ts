@@ -211,6 +211,8 @@ export const ar = {
     published: (date: string) => `نُشر في ${date}`,
     otherLanguages: 'بلغات أخرى',
     language: 'اللغة',
+    related: 'أسئلة ذات صلة',
+    latest: 'سؤال اليوم من المدونة',
     allTopics: 'الكل',
     topics: 'الموضوعات',
     topicSubtitle: (topic: string) => `أسئلة في ${topic} وأجوبتها بالدليل من القرآن والسنة الصحيحة بفهم السلف.`,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { trackBlog } from '../services/blogService';
 import { MessageSquarePlus, Paperclip, ShieldCheck } from 'lucide-react';
 import { useI18n } from '../i18n/context';
 import { LanguageMenu } from './LanguageMenu';
@@ -29,6 +30,7 @@ export const ShareView: React.FC<ShareViewProps> = ({ shareId, onAskOwn, onConti
         if (cancelled) return;
         setShare(result);
         setStatus(result ? 'ready' : 'missing');
+        if (result) trackBlog('shareOpen');
       })
       .catch(() => {
         if (!cancelled) setStatus('error');

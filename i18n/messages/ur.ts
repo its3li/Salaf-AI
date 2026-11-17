@@ -201,6 +201,8 @@ export const ur: Messages = {
     published: (date: string) => `${date} کو شائع ہوا`,
     otherLanguages: 'دوسری زبانیں',
     language: 'زبان',
+    related: 'متعلقہ سوالات',
+    latest: 'آج کا سوال، بلاگ سے',
     allTopics: 'سب',
     topics: 'موضوعات',
     topicSubtitle: (topic: string) => `${topic} کے سوالات اور ان کے جوابات، قرآن اور صحیح سنت کے دلائل کے ساتھ سلف کے فہم کے مطابق۔`,

@@ -201,6 +201,8 @@ export const fa: Messages = {
     published: (date: string) => `منتشرشده در ${date}`,
     otherLanguages: 'زبان‌های دیگر',
     language: 'زبان',
+    related: 'پرسش‌های مرتبط',
+    latest: 'پرسش امروز از وبلاگ',
     allTopics: 'همه',
     topics: 'موضوعات',
     topicSubtitle: (topic: string) => `پرسش‌های ${topic} و پاسخ آن‌ها با دلایل قرآن و سنت صحیح به فهم سلف.`,

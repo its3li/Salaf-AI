@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import handler from './stats';
-import { recordMedia, recordMessage, statsDay } from './_lib/stats';
+import { recordBlogEvent, recordMedia, recordMessage, statsDay } from './_lib/stats';
 
 const REDIS = 'https://redis.example';
 const WEBHOOK = 'https://discord.example/webhook';
@@ -93,6 +93,18 @@ describe('recording usage', () => {
       ['media_items', 1],
       ['media_seconds', 50],
     ]);
+  });
+
+  it('counts blog reads with their readers, "Ask more" presses and opened shares', async () => {
+    const { redisCommands } = fakeServices();
+    const req = { headers: { 'x-client-id': 'device-aaaa-1111' } } as unknown as VercelRequest;
+    await recordBlogEvent(req, 'view');
+    await recordBlogEvent(req, 'askMore');
+    await recordBlogEvent(req, 'shareOpen');
+    const day = statsDay();
+    expect(redisCommands).toContainEqual(['PFADD', `salaf:stats:readers:${day}`, 'device:device-aaaa-1111']);
+    const fields = redisCommands.filter((command) => command[0] === 'HINCRBY').map((command) => command[2]);
+    expect(fields).toEqual(['blog_views', 'blog_ask_more', 'share_opens']);
   });
 
   it('never throws when Redis fails, so an answer is never lost to it', async () => {

@@ -164,6 +164,24 @@ describe('admin', () => {
 });
 
 describe('public pages', () => {
+  it('suggests other questions after a post, the same topic first', async () => {
+    await savePost(samplePost());
+    await savePost(samplePost({ slug: 'tawhid', category: 'aqidah', createdAt: 1_790_000_100_000, langs: { ar: { q: 'ما هو التوحيد؟', a: 'x' } } }));
+    await savePost(samplePost({ slug: 'duha', createdAt: 1_790_000_050_000, langs: { ar: { q: 'ما حكم صلاة الضحى؟', a: 'x' } } }));
+    const res = response();
+    await blogHandler({ method: 'GET', headers: {}, query: { slug: 'witr-ruling', lang: 'ar' } } as unknown as VercelRequest, res as unknown as VercelResponse);
+    expect((res.body as { related: Array<{ q: string }> }).related.map((item) => item.q)).toEqual(['ما حكم صلاة الضحى؟', 'ما هو التوحيد؟']);
+  });
+
+  it('accepts only known reading events', async () => {
+    const bad = response();
+    await blogHandler({ method: 'POST', headers: {}, query: {}, body: { event: 'hack' } } as unknown as VercelRequest, bad as unknown as VercelResponse);
+    expect(bad.statusCode).toBe(400);
+    const good = response();
+    await blogHandler({ method: 'POST', headers: {}, query: {}, body: { event: 'view' } } as unknown as VercelRequest, good as unknown as VercelResponse);
+    expect(good.statusCode).toBe(204);
+  });
+
   it('gives each post its own preview picture', async () => {
     await savePost(samplePost());
     const res = response();

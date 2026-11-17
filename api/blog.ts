@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { BLOG_LANGUAGES, CATEGORIES, findPost, listPublishedSlugs, readPosts, slugFor, visibleLanguages, type BlogPost } from './_lib/blog.js';
 import type { ReplyLanguage } from './_lib/research.js';
 import { clip, plainAnswer } from './_lib/pageTemplate.js';
+import { allowBurst } from './_lib/limits.js';
+import { recordBlogEvent, BLOG_EVENTS, type BlogEvent } from './_lib/stats.js';
 
 // Public blog data for the app: GET ?slug=…&lang=… for one post, GET ?lang=…&offset=…[&topic=…] for the list.
 
@@ -45,9 +47,27 @@ export const postSummary = (post: BlogPost, lang: ReplyLanguage) => {
     return { slug: slugFor(post, shownLanguage(post, lang)!), category: post.category, createdAt: post.createdAt, q: version.q, excerpt: clip(plainAnswer(version.a), 220) };
 };
 
+/** Up to three other questions for the end of a post: the same topic first, then the newest. */
+export const relatedPosts = async (post: BlogPost, lang: ReplyLanguage, count = 3) => {
+    const others = (await readPosts(await listPublishedSlugs(0, 200))).filter(
+        (other) => other.slug !== post.slug && other.status === 'published' && shownLanguage(other, lang) === lang
+    );
+    const sameTopic = others.filter((other) => other.category === post.category);
+    const rest = others.filter((other) => other.category !== post.category);
+    return [...sameTopic, ...rest].slice(0, count).map((other) => ({ slug: slugFor(other, lang), q: other.langs[lang]!.q, category: other.category }));
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // POST { event }: the app counts blog reads, "Ask more" presses and opened shares for the daily report.
+    if (req.method === 'POST') {
+        res.setHeader('Cache-Control', 'no-store');
+        const event = req.body?.event as BlogEvent;
+        if (!BLOG_EVENTS.includes(event)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR' } });
+        if (await allowBurst(req, 'blog-event', 30)) await recordBlogEvent(req, event);
+        return res.status(204).end();
+    }
     if (req.method !== 'GET') {
-        res.setHeader('Allow', 'GET');
+        res.setHeader('Allow', 'GET, POST');
         return res.status(405).json({ error: { code: 'METHOD_NOT_ALLOWED' } });
     }
     const lang = pickLanguage(req.query.lang);
@@ -61,7 +81,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(404).json({ error: { code: 'POST_NOT_FOUND' } });
             }
             res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
-            return res.status(200).json(postView(post, found.lang));
+            const related = await relatedPosts(post, found.lang).catch(() => []);
+            return res.status(200).json({ ...postView(post, found.lang), related });
         }
         const offset = Math.max(0, Math.min(10_000, Number(req.query.offset) || 0));
         const topic = (CATEGORIES as readonly string[]).includes(String(req.query.topic)) ? String(req.query.topic) : null;
