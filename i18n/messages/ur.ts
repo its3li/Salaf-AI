@@ -200,6 +200,7 @@ export const ur: Messages = {
     reviewed: 'باحث السلف نے جواب دیا، پھر ایک مدیر نے جائزہ لے کر منظور کیا۔',
     published: (date: string) => `${date} کو شائع ہوا`,
     otherLanguages: 'دوسری زبانیں',
+    language: 'زبان',
     allTopics: 'سب',
     topics: 'موضوعات',
     topicSubtitle: (topic: string) => `${topic} کے سوالات اور ان کے جوابات، قرآن اور صحیح سنت کے دلائل کے ساتھ سلف کے فہم کے مطابق۔`,

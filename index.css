@@ -509,3 +509,11 @@ html[data-transition='page']::view-transition-new(root) {
     background: none;
   }
 }
+
+/* Rows that scroll sideways on phones, without a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
