@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateGemini } from './gemini';
 import { runResearchTool } from './research';
 import { clearMemoryStoreForTests } from './limits';
-import { clearBlogMemoryForTests, findPost, localSlug, publishQuestion, queueQuestion, readPost, runDaily, savePost, type BlogPost } from './blog';
+import { clearBlogMemoryForTests, findPost, listAllPosts, localSlug, publishQuestion, queueQuestion, readPost, runDaily, savePost, type BlogPost } from './blog';
 import blogHandler from '../blog';
 import adminHandler from '../blogadmin';
 import blogPageHandler from '../blogpage';
@@ -186,6 +186,15 @@ describe('addresses in each language', () => {
     expect(localSlug('ما حُكْمُ صلاةِ الوترِ؟')).toBe('ما-حكم-صلاة-الوتر');
     expect(localSlug('کیا وتر واجب ہے؟')).toBe('کیا-وتر-واجب-ہے');
     expect(localSlug('Is Witr obligatory?')).toBe('is-witr-obligatory');
+  });
+
+  it('keeps addresses to four words, and old longer ones still lead to the post', async () => {
+    expect(localSlug('ما حكم صلاة الوتر وهل هي واجبة أم سنة؟')).toBe('ما-حكم-صلاة-الوتر');
+    const long = 'ما-حكم-صلاة-الوتر-وهل-هي-واجبة';
+    await savePost(samplePost({ langs: { ar: { q: 'ما حكم صلاة الوتر وهل هي واجبة أم سنة؟', a: 'سنة.', slug: long } } }));
+    await listAllPosts();
+    expect((await readPost('witr-ruling'))?.langs.ar?.slug).toBe('ما-حكم-صلاة-الوتر');
+    expect((await findPost(long, 'ar'))?.post.slug).toBe('witr-ruling');
   });
 
   it("opens the version whose language the address is in, whatever the prefix", async () => {

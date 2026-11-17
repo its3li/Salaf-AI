@@ -138,7 +138,12 @@ const slugField = (lang: ReplyLanguage, slug: string) => `${lang}/${slug}`;
 /** A version's address: its own slug, or the post's id for posts made before addresses were translated. */
 export const slugFor = (post: BlogPost, lang: ReplyLanguage) => post.langs[lang]?.slug ?? post.slug;
 
-/** The question's first words as an address: "ما حكم صلاة الوتر؟" → "ما-حكم-صلاة-الوتر". */
+/**
+ * The question's first four words as an address: "ما حكم صلاة الوتر؟" → "ما-حكم-صلاة-الوتر".
+ * Kept short because copied links spell each Arabic-script letter as %XX%XX.
+ */
+export const SLUG_WORDS = 4;
+
 export const localSlug = (text: string) =>
     text
         .normalize('NFKC')
@@ -148,9 +153,9 @@ export const localSlug = (text: string) =>
         .replace(/[^\p{L}\p{N}]+/gu, '-')
         .replace(/^-+|-+$/g, '')
         .split('-')
-        .slice(0, 9)
+        .slice(0, SLUG_WORDS)
         .join('-')
-        .slice(0, 80)
+        .slice(0, 60)
         .replace(/-+$/g, '');
 
 const slugOwner = async (lang: ReplyLanguage, slug: string) => {
@@ -195,7 +200,8 @@ export const findPost = async (raw: string, lang: ReplyLanguage): Promise<{ post
     const owned = async (i: number) => {
         const owner = owners[i];
         const post = typeof owner === 'string' ? await readPost(owner) : null;
-        return post && slugFor(post, order[i]) === slug ? { post, lang: order[i] } : null;
+        // A former address of the post still finds it; the page then moves to the current one.
+        return post && post.langs[order[i]] ? { post, lang: order[i] } : null;
     };
     // The asked language's own address, then an old address (the post's id, which English shares),
     // then another language's address.
@@ -278,7 +284,15 @@ export const listAllPosts = async (): Promise<BlogPost[]> => {
     const posts = await readPosts(slugs);
     // Posts saved before each language had its own address get theirs here (the admin page and the daily run).
     for (const post of posts) {
-        if (BLOG_LANGUAGES.some((lang) => post.langs[lang] && !post.langs[lang]!.slug)) await savePost(post);
+        // Addresses longer than four words (from before they were shortened) are made again; the old ones redirect.
+        let changed = false;
+        for (const lang of BLOG_LANGUAGES) {
+            const version = post.langs[lang];
+            if (!version) continue;
+            if (version.slug && lang !== 'en' && version.slug.split('-').length > SLUG_WORDS + 1) delete version.slug;
+            if (!version.slug) changed = true;
+        }
+        if (changed) await savePost(post);
     }
     return posts.sort((a, b) => b.createdAt - a.createdAt);
 };
