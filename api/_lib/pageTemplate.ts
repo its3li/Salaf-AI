@@ -47,7 +47,7 @@ export interface PageMeta {
     /** Other language versions of this page, for hreflang. */
     alternates?: Array<{ lang: string; url: string }>;
     noindex?: boolean;
-    /** A 1200×630 PNG link preview of this page, in place of the site's picture. */
+    /** A 1200×630 JPEG link preview of this page, in place of the site's picture. */
     image?: { url: string; alt: string };
 }
 
@@ -75,7 +75,7 @@ export const applyPageMeta = (template: string, meta: PageMeta) => {
         for (const tag of ['property="og:image"', 'property="og:image:secure_url"', 'name="twitter:image"']) {
             html = html.replace(new RegExp(`<meta ${tag} content="[^"]*">`), `<meta ${tag} content="${attr(url)}">`);
         }
-        html = html.replace(/<meta property="og:image:type" content="[^"]*">/, '<meta property="og:image:type" content="image/png">');
+        html = html.replace(/<meta property="og:image:type" content="[^"]*">/, '<meta property="og:image:type" content="image/jpeg">');
         for (const tag of ['property="og:image:alt"', 'name="twitter:image:alt"']) {
             html = html.replace(new RegExp(`<meta ${tag} content="[^"]*">`), `<meta ${tag} content="${attr(alt)}">`);
         }

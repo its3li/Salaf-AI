@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
+import jpeg from 'jpeg-js';
 import type { ReplyLanguage } from './research.js';
 
 /*
  * The link-preview picture of a blog post: the question in large type on the site's black and gold,
- * so a shared post shows what it answers. 1200×630, the size WhatsApp, Facebook and X expect.
+ * so a shared post shows what it answers. Sent as JPEG. 1200×630, the size WhatsApp, Facebook and X expect.
  * The font and logo ship with the function (vercel.json includeFiles).
  */
 
@@ -96,5 +97,7 @@ ${text}
         fitTo: { mode: 'width', value: 1200 },
         font: { fontFiles: fonts, loadSystemFonts: false, defaultFontFamily: 'IBM Plex Sans Arabic' },
     });
-    return resvg.render().asPng();
+    // JPEG keeps the gradients small (~100 KB); WhatsApp skips previews over about 300 KB.
+    const image = resvg.render();
+    return jpeg.encode({ data: image.pixels, width: image.width, height: image.height }, 86).data;
 };

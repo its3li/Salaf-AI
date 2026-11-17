@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import jpeg from 'jpeg-js';
 import { generateGemini } from './gemini';
 import { runResearchTool } from './research';
 import { clearMemoryStoreForTests } from './limits';
@@ -167,11 +168,10 @@ describe('public pages', () => {
     await savePost(samplePost());
     const res = response();
     await blogPageHandler({ method: 'GET', headers: {}, query: { og: 'witr-ruling', lang: 'ar' } } as unknown as VercelRequest, res as unknown as VercelResponse);
-    expect(res.headers['content-type']).toBe('image/png');
-    const png = res.body as Buffer;
-    expect(png.subarray(1, 4).toString()).toBe('PNG');
-    expect(png.readUInt32BE(16)).toBe(1200);
-    expect(png.readUInt32BE(20)).toBe(630);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    const picture = jpeg.decode(res.body as Buffer);
+    expect([picture.width, picture.height]).toEqual([1200, 630]);
+    expect((res.body as Buffer).length).toBeLessThan(300_000);
 
     const missing = response();
     await blogPageHandler({ method: 'GET', headers: {}, query: { og: 'nothing', lang: 'ar' } } as unknown as VercelRequest, missing as unknown as VercelResponse);

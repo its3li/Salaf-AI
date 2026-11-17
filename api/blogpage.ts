@@ -144,11 +144,11 @@ const handlePostImage = async (req: VercelRequest, res: VercelResponse) => {
             res.setHeader('Cache-Control', 'no-store');
             return res.redirect(302, '/og-image.jpg');
         }
-        const png = renderPostImage(post.langs[shown]!.q, shown, TOPIC_LABEL[shown][post.category]);
-        res.setHeader('Content-Type', 'image/png');
+        const picture = renderPostImage(post.langs[shown]!.q, shown, TOPIC_LABEL[shown][post.category]);
+        res.setHeader('Content-Type', 'image/jpeg');
         // The address carries the version, so each image can be kept for long.
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=31536000, immutable');
-        return res.status(200).send(png);
+        return res.status(200).send(picture);
     } catch (error) {
         console.warn('[api/blogpage] image failed', { error: error instanceof Error ? error.message : String(error) });
         res.setHeader('Cache-Control', 'no-store');
@@ -204,6 +204,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).send(renderPostPage(template, post, lang));
         }
         const topic = (CATEGORIES as readonly string[]).includes(String(req.query.topic)) ? (req.query.topic as Category) : undefined;
+        if (req.query.topic !== undefined && !topic) {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(404).send(applyPageMeta(template, { lang, title: TEXT[lang].blog, description: TEXT[lang].blogDescription, url: `${SITE}${blogPath(lang)}`, noindex: true }));
+        }
         const posts = await readPosts(await listPublishedSlugs(0, topic ? 500 : 50));
         res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
         return res.status(200).send(renderIndexPage(template, posts, lang, topic));
