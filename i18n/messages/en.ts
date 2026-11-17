@@ -381,6 +381,11 @@ export const en: Messages = {
     faqTitle: 'Common questions',
     faq: [
       {
+        question: 'Is there a Salaf AI app?',
+        answer:
+          'Yes, and it needs no app store. Open the site in your phone or computer browser and press "Install the app" at the top of this page. It then sits on your home screen like any app and opens without the browser bar. It works on Android, iPhone, Windows and Mac.',
+      },
+      {
         question: 'Does Salaf AI give fatwas?',
         answer:
           "No. It's a research assistant that shows what the texts and the statements of the scholars say. It doesn't replace asking the scholars about personal fatwas and new issues.",
