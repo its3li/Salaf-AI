@@ -329,7 +329,7 @@ const App: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  <HomeHero onPickQuestion={setInputText}>{composer}</HomeHero>
+                  <HomeHero onPickQuestion={setInputText} onOpenBlogPath={goTo}>{composer}</HomeHero>
                 )}
                 <div ref={messagesEndRef} />
               </div>

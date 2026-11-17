@@ -15,6 +15,7 @@ const KEEP_SECONDS = 90 * 86400;
 export const statsKeys = {
     day: (day: string) => `salaf:stats:day:${day}`,
     users: (day: string) => `salaf:stats:users:${day}`,
+    readers: (day: string) => `salaf:stats:readers:${day}`,
 };
 
 /** The UTC day a moment falls on, as the limits count it (they reset at 00:00 UTC). */
@@ -47,6 +48,25 @@ export const recordMessage = (req: VercelRequest, language: string) => {
     );
 };
 
+export const BLOG_EVENTS = ['view', 'askMore', 'shareOpen'] as const;
+export type BlogEvent = (typeof BLOG_EVENTS)[number];
+
+const BLOG_FIELD: Record<BlogEvent, string> = { view: 'blog_views', askMore: 'blog_ask_more', shareOpen: 'share_opens' };
+
+/** Counts a blog read (and its reader), an "Ask more" press, or an opened shared conversation. */
+export const recordBlogEvent = (req: VercelRequest, event: BlogEvent) => {
+    const day = statsDay();
+    const deviceId = getClientDeviceId(req);
+    const reader = deviceId ? `device:${deviceId}` : `ip:${getClientIp(req)}`;
+    return record(
+        [
+            ['HINCRBY', statsKeys.day(day), BLOG_FIELD[event], 1],
+            ...(event === 'view' ? [['PFADD', statsKeys.readers(day), reader], ['EXPIRE', statsKeys.readers(day), KEEP_SECONDS]] : []),
+        ],
+        day
+    );
+};
+
 /** Counts a transcribed clip: its length, and whether the backup or the cache supplied it. */
 export const recordMedia = (seconds: number, provider: 'assemblyai' | 'mai' | 'cache' | 'native') => {
     const day = statsDay();
@@ -69,6 +89,10 @@ export interface DayStats {
     mediaSeconds: number;
     mediaBackup: number;
     mediaCached: number;
+    blogViews: number;
+    blogReaders: number;
+    blogAskMore: number;
+    shareOpens: number;
 }
 
 /** One day's numbers, plus how many different users there were over the days given. */
@@ -77,6 +101,7 @@ export const readStats = async (day: string, weekDays: string[]): Promise<{ stat
         ['HGETALL', statsKeys.day(day)],
         ['PFCOUNT', statsKeys.users(day)],
         ['PFCOUNT', ...weekDays.map(statsKeys.users)],
+        ['PFCOUNT', statsKeys.readers(day)],
     ]);
     if (!replies) return null;
 
@@ -100,6 +125,10 @@ export const readStats = async (day: string, weekDays: string[]): Promise<{ stat
             mediaSeconds: fields.media_seconds ?? 0,
             mediaBackup: fields.media_mai ?? 0,
             mediaCached: fields.media_cache ?? 0,
+            blogViews: fields.blog_views ?? 0,
+            blogReaders: Number(replies[3]?.result) || 0,
+            blogAskMore: fields.blog_ask_more ?? 0,
+            shareOpens: fields.share_opens ?? 0,
         },
         weekUsers: Number(replies[2]?.result) || 0,
     };

@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 // The .js extension is required: Vercel runs these files as native ES modules without bundling.
+import { renderPostImage } from './ogImage.js';
+import type { ReplyLanguage } from './research.js';
 import { readShare, SHARE_ID_PATTERN, type SharedConversation } from './shares.js';
 import {
     SITE,
@@ -39,6 +41,7 @@ export const renderSharePage = (template: string, share: SharedConversation | nu
         description: clip(plainAnswer(share.turns[share.turns.length - 1].a), 200),
         url: `${SITE}/s/${id}`,
         type: 'article',
+        image: { url: `${SITE}/api/share?og=${id}`, alt: clip(first.q || labels.question, 200) },
     });
     const article = [
         `<article dir="${DIR[lang]}" lang="${lang}">`,
@@ -72,4 +75,33 @@ export async function handleSharePage(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', share ? 'public, s-maxage=60' : 'no-store');
     return res.status(share ? 200 : 404).send(renderSharePage(template, share, id));
+}
+
+const IMAGE_LABEL: Record<ReplyLanguage, string> = {
+    ar: 'جواب منشور من باحث السلف',
+    en: 'Shared answer',
+    ur: 'شیئر کیا گیا جواب',
+    fa: 'پاسخ هم‌رسانی‌شده',
+};
+
+/** /api/share?og=<id>: the shared conversation's link-preview picture, its first question on black and gold. */
+export async function handleShareImage(req: VercelRequest, res: VercelResponse) {
+    try {
+        const share = await readShare(String(req.query.og ?? ''));
+        const question = share?.turns[0]?.q?.trim();
+        if (!share || !question) {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.redirect(302, '/og-image.jpg');
+        }
+        const lang = (['ar', 'en', 'ur', 'fa'] as const).find((code) => code === share.lang) ?? 'ar';
+        const picture = renderPostImage(question, lang, IMAGE_LABEL[lang]);
+        res.setHeader('Content-Type', 'image/jpeg');
+        // Short, so a share that is stopped stops showing its picture soon after.
+        res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600');
+        return res.status(200).send(picture);
+    } catch (error) {
+        console.warn('[api/share] image failed', { error: error instanceof Error ? error.message : String(error) });
+        res.setHeader('Cache-Control', 'no-store');
+        return res.redirect(302, '/og-image.jpg');
+    }
 }

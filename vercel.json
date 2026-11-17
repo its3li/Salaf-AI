@@ -3,7 +3,8 @@
     "api/chat.ts": { "maxDuration": 300, "supportsCancellation": true },
     "api/media.ts": { "maxDuration": 300 },
     "api/blogadmin.ts": { "maxDuration": 300 },
-    "api/blogpage.ts": { "includeFiles": "api/_lib/og/**" }
+    "api/blogpage.ts": { "includeFiles": "api/_lib/og/**" },
+    "api/share.ts": { "includeFiles": "api/_lib/og/**" }
   },
   "crons": [
     { "path": "/api/stats", "schedule": "10 0 * * *" },

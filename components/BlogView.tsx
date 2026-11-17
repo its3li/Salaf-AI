@@ -5,7 +5,7 @@ import { I18nContext, useI18n } from '../i18n/context';
 import { LANGUAGES, storeBlogLanguage, textDirection, type Language } from '../i18n/languages';
 import { MessageBubble } from './MessageBubble';
 import type { Message } from '../types';
-import { BLOG_TOPICS, blogPath, fetchPost, fetchPosts, topicPath, type BlogPostView, type BlogSummary, type BlogTopic } from '../services/blogService';
+import { BLOG_TOPICS, blogPath, fetchPost, fetchPosts, topicPath, trackBlog, type BlogPostView, type BlogSummary, type BlogTopic } from '../services/blogService';
 import { createClientUuid } from '../services/ids';
 
 interface BlogViewProps {
@@ -279,6 +279,7 @@ const PostPage: React.FC<{
       .then((result) => {
         setPost(result);
         if (!result) return;
+        trackBlog('view');
         onLanguages(Object.fromEntries(result.languages.map((language) => [language, blogPath(language, result.slugs[language])])));
         document.title = `${result.q} | ${t.appName}`;
         // Old addresses, or one language's address under another's prefix, show the version's own address.
@@ -348,12 +349,13 @@ const PostPage: React.FC<{
         <button
           type="button"
           data-testid="blog-ask-more"
-          onClick={() =>
+          onClick={() => {
+            trackBlog('askMore');
             onContinue(post.q.slice(0, 60), [
               { id: createClientUuid(), role: 'user', text: post.q, timestamp: new Date(post.createdAt) },
               { id: createClientUuid(), role: 'model', text: post.a, timestamp: new Date(post.createdAt) },
-            ])
-          }
+            ]);
+          }}
           className="flex h-11 items-center gap-2 rounded-full bg-gold px-6 font-semibold text-[#17160f] transition-opacity hover:opacity-85"
         >
           <MessageSquarePlus size={18} strokeWidth={2} aria-hidden="true" />
@@ -367,6 +369,33 @@ const PostPage: React.FC<{
           {t.blog.askOwn}
         </button>
       </div>
+
+      {post.related && post.related.length > 0 && (
+        <section className="mt-10" aria-labelledby="related-heading" data-testid="blog-related">
+          <h2 id="related-heading" className="mb-3 text-[1.15rem] font-bold">
+            {t.blog.related}
+          </h2>
+          <ul className="space-y-2">
+            {post.related.map((item) => (
+              <li key={item.slug}>
+                <a
+                  href={blogPath(post.lang, item.slug)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onNavigate(blogPath(post.lang, item.slug));
+                  }}
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 transition-colors hover:border-gold/40"
+                >
+                  <span className="shrink-0 rounded-full bg-gold-soft px-2 py-0.5 text-[0.75rem] font-medium text-gold-text">
+                    {t.blog.categories[item.category] ?? item.category}
+                  </span>
+                  <span className="text-[0.98rem] leading-snug">{item.q}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </article>
   );
 };

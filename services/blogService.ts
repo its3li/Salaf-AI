@@ -1,4 +1,5 @@
 import type { Language } from '../i18n/languages';
+import { getClientId } from './chatService';
 
 export const BLOG_LANGUAGES: Language[] = ['ar', 'en', 'ur', 'fa'];
 
@@ -26,6 +27,8 @@ export interface BlogPostView {
   reviewed?: boolean;
   languages: Language[];
   slugs: Partial<Record<Language, string>>;
+  /** Other questions to read next, in this language. */
+  related?: Array<{ slug: string; q: string; category: string }>;
 }
 
 /** /blog and /blog/<slug> are Arabic; /en|ur|fa/blog[/<slug>] the other languages. Slugs are in each language's own words. */
@@ -63,6 +66,17 @@ export const fetchPost = async (slug: string, lang: Language): Promise<BlogPostV
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Blog post failed (${response.status})`);
   return (await response.json()) as BlogPostView;
+};
+
+/** Counts a blog read, an "Ask more" press or an opened share for the daily report. Never fails. */
+export const trackBlog = (event: 'view' | 'askMore' | 'shareOpen') => {
+  const clientId = getClientId();
+  void fetch('/api/blog', {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json', ...(clientId ? { 'X-Client-Id': clientId } : {}) },
+    body: JSON.stringify({ event }),
+  }).catch(() => undefined);
 };
 
 // ---------------------------------------------------------------------------

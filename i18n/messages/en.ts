@@ -206,6 +206,8 @@ export const en: Messages = {
     published: (date: string) => `Published ${date}`,
     otherLanguages: 'Other languages',
     language: 'Language',
+    related: 'Related questions',
+    latest: 'Question of the day, from the blog',
     allTopics: 'All',
     topics: 'Topics',
     topicSubtitle: (topic: string) => `Questions on ${topic}, answered with evidence from the Quran and authentic Sunnah as the Salaf understood them.`,
