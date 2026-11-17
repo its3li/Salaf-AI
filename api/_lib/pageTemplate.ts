@@ -47,6 +47,8 @@ export interface PageMeta {
     /** Other language versions of this page, for hreflang. */
     alternates?: Array<{ lang: string; url: string }>;
     noindex?: boolean;
+    /** A 1200×630 PNG link preview of this page, in place of the site's picture. */
+    image?: { url: string; alt: string };
 }
 
 export const applyPageMeta = (template: string, meta: PageMeta) => {
@@ -68,6 +70,16 @@ export const applyPageMeta = (template: string, meta: PageMeta) => {
         ...(meta.alternates ?? []).map((alt) => `<link rel="alternate" hreflang="${alt.lang}" href="${attr(alt.url)}">`),
     ].join('\n    ');
     html = html.replace(/<link rel="canonical" href="[^"]*">/, links);
+    if (meta.image) {
+        const { url, alt } = meta.image;
+        for (const tag of ['property="og:image"', 'property="og:image:secure_url"', 'name="twitter:image"']) {
+            html = html.replace(new RegExp(`<meta ${tag} content="[^"]*">`), `<meta ${tag} content="${attr(url)}">`);
+        }
+        html = html.replace(/<meta property="og:image:type" content="[^"]*">/, '<meta property="og:image:type" content="image/png">');
+        for (const tag of ['property="og:image:alt"', 'name="twitter:image:alt"']) {
+            html = html.replace(new RegExp(`<meta ${tag} content="[^"]*">`), `<meta ${tag} content="${attr(alt)}">`);
+        }
+    }
     if (meta.noindex) html = html.replace(/<meta name="robots" content="[^"]*">/, '<meta name="robots" content="noindex">');
     return html;
 };

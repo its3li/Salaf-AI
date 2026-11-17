@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.8.2",
     "@vercel/functions": "3.10.5",

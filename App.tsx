@@ -226,6 +226,7 @@ const App: React.FC = () => {
         <BlogView
           lang={blogRoute.lang}
           slug={blogRoute.slug}
+          topic={blogRoute.topic}
           onNavigate={goTo}
           onAskOwn={() => {
             createNewChat(false);
